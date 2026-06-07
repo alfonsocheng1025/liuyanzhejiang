@@ -130,6 +130,19 @@
   #cDistFocus{display:none}
   .maparea.focus #cDistFocus{display:block}
   .maparea.focus #cMap{inset:auto;left:6px;top:6px;width:224px;height:166px;border:1px solid var(--line2);border-radius:8px;background:rgba(7,12,26,.72);z-index:4;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+  /* 轮播到区时自动弹出的详情框（含风险研判+应对） */
+  .distinfo{position:absolute;right:10px;top:10px;width:316px;max-height:calc(100% - 20px);overflow-y:auto;
+    background:rgba(8,14,28,.82);border:1px solid var(--line);border-radius:10px;padding:12px 14px;z-index:6;backdrop-filter:blur(3px);display:none}
+  .distinfo::-webkit-scrollbar{width:5px}.distinfo::-webkit-scrollbar-thumb{background:rgba(245,185,66,.3);border-radius:3px}
+  .di-t{font-size:20px;font-weight:800;color:#fff;margin-bottom:5px;letter-spacing:1px}
+  .di-row{font-size:13px;color:#cdd8f0;line-height:1.95}
+  .di-row b{color:var(--gold-b);font-variant-numeric:tabular-nums}
+  .di-h{font-size:13px;color:#ff9b8f;font-weight:700;margin:9px 0 5px;border-top:1px solid var(--line2);padding-top:7px}
+  .di-risk{border-left:3px solid #ff8b5b;background:rgba(40,16,16,.32);border-radius:6px;padding:6px 9px;margin-bottom:6px}
+  .di-rk{font-size:13px;font-weight:700}
+  .di-j{font-size:12px;color:#cdd8f0;line-height:1.5;margin-top:3px}
+  .di-a{font-size:12px;color:#ffd27d;line-height:1.5;margin-top:3px}
+  .di-none{font-size:12px;color:var(--txt3);padding:6px 0}
 
   .ticker{flex:1 1 auto;overflow:hidden;position:relative;mask-image:linear-gradient(180deg,transparent,#000 6%,#000 94%,transparent)}
   .tk-track{display:flex;flex-direction:column;gap:9px;animation:roll linear infinite}
@@ -225,6 +238,7 @@
         <div class="maparea" id="maparea">
           <div class="chart mapfull" id="cMap"><div class="loading">地图加载中…</div></div>
           <div class="chart mapfull" id="cDistFocus"></div>
+          <div class="distinfo" id="distInfo"></div>
           <div class="trendov">
             <div class="trendov-h">月度趋势 · <span id="trendScope" style="color:var(--gold-b);font-weight:700">全市</span> <span class="badge" id="momBadge">环比 --</span><span class="badge" id="yoyBadge">同比 --</span></div>
             <div id="cTrend" style="flex:1;min-height:0"></div>
@@ -462,31 +476,42 @@ function applyScope(o,label){
   (CH.cStreetMain||mk('cStreetMain')).setOption(streetBar(isAll?mergeStreets():(o.byStreet||{}),8));
   (CH.cStreetSat||mk('cStreetSat')).setOption(streetSatBar(isAll?mergeStreetSat():(o.streetSat||{}),3));
   if(isAll){$('streetTag').innerHTML='<span style="color:var(--txt3)">全市·按街道留言量</span>';$('streetSatTitle').textContent='全市街道满意度';
-    $('maparea').classList.remove('focus');$('mapTitle').textContent='杭州主城区留言热力';
+    $('maparea').classList.remove('focus');$('mapTitle').textContent='杭州主城区留言热力';$('distInfo').style.display='none';
     if(CH.cMap)requestAnimationFrame(()=>CH.cMap.resize());}
   else{const cov=(o.streetCov!=null)?o.streetCov:0;
     $('streetTag').innerHTML='▶ <span style="color:#ffd27d;font-weight:700">'+label+'</span> <span style="color:var(--txt3)">留言量·覆盖'+cov+'%</span>';
     $('streetSatTitle').textContent=label+'·街道满意度';
     if(DMAP[label]){$('maparea').classList.add('focus');$('mapTitle').textContent=label+' · 街道分布';renderDistFocus(label);
+      $('distInfo').innerHTML=distInfoHTML(label);$('distInfo').style.display='block';
       requestAnimationFrame(()=>{CH.cMap&&CH.cMap.resize();CH.cDistFocus&&CH.cDistFocus.resize();});}
-    else $('maparea').classList.remove('focus');}}
+    else{$('maparea').classList.remove('focus');$('distInfo').style.display='none';}}}
+function distInfoHTML(name){const dd=DATA.districts&&DATA.districts[name];if(!dd)return '';
+  const s=dd.sat,rate=satRate(s),dl=rate-satRate(DATA.sat);
+  const wait=(dd.byStatus&&dd.byStatus['待回复'])||0,hr=handledRate(dd.byStatus,dd.count);
+  const rps=((RISK&&RISK.points)||[]).filter(p=>p.area===name).slice(0,2);
+  const risk=rps.length?rps.map(p=>`<div class="di-risk"><span class="di-rk ${RKCLS[p.level]||'rk-l'}">●${p.level} ${esc(p.topic)}</span><div class="di-j">${esc(p.judge||(p.signals||[]).join('、'))}</div>${p.advice?`<div class="di-a">▶ 应对：${esc(p.advice)}</div>`:''}</div>`).join(''):'<div class="di-none">本区暂无识别到风险点</div>';
+  return `<div class="di-t">${name}</div>
+    <div class="di-row">留言 <b>${fmt(dd.count)}</b> 条 · 满意率 <b>${rate.toFixed(1)}%</b> <span style="color:${dl>=0?'#7fe6c1':'#ff9b8f'}">${dl>=0?'▲':'▼'}${Math.abs(dl).toFixed(1)}</span></div>
+    <div class="di-row">办结率 <b>${hr.toFixed(1)}%</b> · 待回复 <b style="color:#ff9b8f">${fmt(wait)}</b> · 低分 <b style="color:#ff9b8f">${(dd.low||[]).length}</b></div>
+    <div class="di-h">⚠ 社会风险研判与应对</div>${risk}`;}
 // 区内街道气泡图：区边界 + 各街道气泡(大小=留言量, 颜色=满意度)
 function renderDistFocus(name){const dd=DATA.districts&&DATA.districts[name];if(!dd||!DMAP[name])return;
   const sg=dd.streetGeo||{},bs=dd.byStreet||{},ss=dd.streetSat||{};
   const max=Math.max(1,...Object.values(bs));
-  const data=Object.keys(sg).map(st=>{const n=bs[st]||0,sc=ss[st]?ss[st].s/ss[st].c:0;
-    return {name:st,value:sg[st].concat(n),satv:sc,
-      itemStyle:{color:sc?(sc<3.5?'#ff5b4d':sc<4.3?'#e0a93a':'#f5b942'):'#7aa0d8',shadowBlur:10,shadowColor:'rgba(245,185,66,.5)'}};});
+  const items=Object.keys(sg).map(st=>({st,n:bs[st]||0,sc:ss[st]?ss[st].s/ss[st].c:0,co:sg[st]})).sort((a,b)=>b.n-a.n);
+  const data=items.map((it,i)=>({name:it.st,value:it.co.concat(it.n),satv:it.sc,
+    label:{show:i<7,formatter:it.st.replace(/(街道|镇|乡)$/,'')},
+    itemStyle:{color:it.sc?(it.sc<3.5?'#ff5b4d':it.sc<4.3?'#e0a93a':'#f5b942'):'#7aa0d8',shadowBlur:8,shadowColor:'rgba(245,185,66,.45)'}}));
   (CH.cDistFocus||mk('cDistFocus')).setOption({
-    geo:{map:name,roam:false,layoutCenter:['50%','52%'],layoutSize:'94%',
-      itemStyle:{areaColor:'#0e1d38',borderColor:'rgba(245,185,66,.32)',borderWidth:1.2},
-      emphasis:{itemStyle:{areaColor:'#1a2c50'},label:{show:false}},label:{show:false}},
+    geo:{map:name,roam:false,layoutCenter:['42%','52%'],layoutSize:'92%',
+      itemStyle:{areaColor:'#0f2342',borderColor:'#3f6fb0',borderWidth:1.4,shadowColor:'rgba(74,163,255,.45)',shadowBlur:22},
+      emphasis:{disabled:true},label:{show:false}},
     tooltip:{trigger:'item',backgroundColor:'rgba(10,18,38,.95)',borderColor:'rgba(245,185,66,.5)',borderWidth:1,
       textStyle:{color:'#e9eefc'},extraCssText:'border-radius:8px',
       formatter:p=>Array.isArray(p.value)?`${p.name}<br/>留言 ${fmt(p.value[2])} 条${p.data.satv?'<br/>满意度 '+p.data.satv.toFixed(2)+'★':''}`:p.name},
     series:[{type:'effectScatter',coordinateSystem:'geo',data:data,zlevel:2,
-      symbolSize:v=>10+30*Math.sqrt((v[2]||0)/max),rippleEffect:{brushType:'stroke',scale:2.4},
-      label:{show:true,position:'right',color:'#cdd8f0',fontSize:11,formatter:p=>p.name.replace(/(街道|镇|乡)$/,'')},
+      symbolSize:v=>9+26*Math.sqrt((v[2]||0)/max),rippleEffect:{brushType:'stroke',scale:2.2},
+      label:{position:'top',color:'#dfe8fb',fontSize:10},labelLayout:{hideOverlap:true},
       emphasis:{scale:1.3}}]},true);}
 const SHORT={'上城区':'上城','拱墅区':'拱墅','西湖区':'西湖','滨江区':'滨江','萧山区':'萧山','余杭区':'余杭','临平区':'临平','钱塘区':'钱塘'};
 function stripKw(kw,label){const s=SHORT[label];if(!s)return kw;const o={};for(const k in kw)if(k.indexOf(s)<0)o[k]=kw[k];return o;}
@@ -555,9 +580,8 @@ function renderMap(d){if(!geoReady)return;const e=CH.cMap||mk('cMap');
     geo:{map:'hangzhou',roam:false,layoutCenter:['50%','52%'],layoutSize:'96%',
       itemStyle:{areaColor:'#0d1830',borderColor:'rgba(120,160,230,.35)',borderWidth:1},
       emphasis:{itemStyle:{areaColor:'#243a66'},label:{color:'#fff'}},label:{show:true,color:'#9fb3da',fontSize:11}},
-    series:[{type:'map',map:'hangzhou',geoIndex:0,data:mapData},
-      {type:'effectScatter',coordinateSystem:'geo',data:pts,symbolSize:v=>8+24*Math.sqrt((v[2]||0)/max),
-       rippleEffect:{brushType:'stroke',scale:3},itemStyle:{color:'#ffd27d',shadowBlur:12,shadowColor:'#f5b942'},zlevel:2}]});
+    series:[{type:'map',map:'hangzhou',geoIndex:0,data:mapData,
+      label:{show:true,color:'#9fb3da',fontSize:11},emphasis:{label:{color:'#fff'}}}]});
   if(!e._bound){e._bound=1;
     e.on('click',p=>{if(p&&p.name&&DATA&&DATA.districts&&DATA.districts[p.name])openDistrict(p.name);});
     $('cMap').addEventListener('mouseenter',stopCar);
