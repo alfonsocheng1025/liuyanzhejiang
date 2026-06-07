@@ -161,7 +161,7 @@
 
     <!-- 中列 -->
     <div class="col">
-      <div class="panel" style="flex:1.75"><div class="pt"><i></i><b>杭州主城区留言热力</b><span class="sp">👆 点击区县看对比</span></div>
+      <div class="panel" style="flex:1.75"><div class="pt"><i></i><b>杭州主城区留言热力</b><span class="sp">🔄 自动轮播 · 点击展开</span></div>
         <div class="chart" id="cMap"><div class="loading">地图加载中…</div></div></div>
       <div class="panel" style="flex:1"><div class="pt"><i></i><b>月度留言趋势（含历史）</b>
         <span class="sp"><span class="badge" id="momBadge">环比 --</span><span class="badge" id="yoyBadge">同比 --</span></span></div>
@@ -284,6 +284,7 @@ function lowCard(m){const sc=[];if(m.gm)sc.push('态度'+m.gm+'★');if(m.gs)sc.
   return `<div class="lowm"><div class="lt"><span class="star">${sc.join(' / ')||'低分'}</span><span class="ld">${m.forum||''} · ${m.date||''}</span></div>
     <div class="lti">${esc(m.title||'(无标题)')}</div>${m.content?`<div class="lco">${esc(m.content)}</div>`:''}</div>`;}
 function openDistrict(name){const dd=(DATA&&DATA.districts||{})[name];if(!dd)return;
+  stopCar();
   $('mName').textContent=name;
   const s=dd.sat,m=s.mCnt?s.mSum/s.mCnt:0,sp=s.sCnt?s.sSum/s.sCnt:0,rate=satRate(s),crate=satRate(DATA.sat);
   const dl=rate-crate,up=dl>=0;
@@ -298,7 +299,33 @@ function openDistrict(name){const dd=(DATA&&DATA.districts||{})[name];if(!dd)ret
   $('mLow').innerHTML=low.map(lowCard).join('')||'<div style="color:var(--txt3);font-size:13px;padding:14px">该区暂无低分留言</div>';
   $('modal').classList.add('on');
   requestAnimationFrame(()=>Object.values(MCH).forEach(c=>c&&c.resize()));}
-function closeModal(){$('modal').classList.remove('on');}
+function closeModal(){$('modal').classList.remove('on');if(CH.cMap)startCar(CH.cMap);}
+
+/* ====== 地图自动轮播：在各区之间跳动，弹出富信息小窗 ====== */
+function districtTip(name){const dd=(DATA&&DATA.districts||{})[name];if(!dd)return name;
+  const s=dd.sat,rate=satRate(s),crate=satRate(DATA.sat),dl=rate-crate,up=dl>=0;
+  const wait=(dd.byStatus&&dd.byStatus['待回复'])||0;
+  const kw=Object.entries(dd.kw||{}).sort((a,b)=>b[1]-a[1]).slice(0,4).map(x=>x[0]).join(' · ');
+  return `<div style="min-width:200px">
+    <div style="font-size:17px;font-weight:800;color:#ffd27d;margin-bottom:7px;letter-spacing:1px">${name}</div>
+    <div style="font-size:13px;line-height:1.85;color:#cdd8f0">
+      留言总量 <b style="color:#fff;font-size:15px">${fmt(dd.count)}</b> 条<br/>
+      群众满意率 <b style="color:#ffd27d;font-size:15px">${rate.toFixed(1)}%</b>
+        <span style="color:${up?'#7fe6c1':'#ff9b8f'};font-weight:700">较全市${up?'▲':'▼'}${Math.abs(dl).toFixed(1)}%</span><br/>
+      待回复 <b style="color:#ff9b8f">${fmt(wait)}</b> 条 · 低分督办 <b style="color:#ff9b8f">${(dd.low||[]).length}</b> 条<br/>
+      <span style="color:#92a6cf">热词</span> ${kw}<br/>
+      <span style="color:#5f739c;font-size:11px">点击查看完整对比 →</span>
+    </div></div>`;}
+let carTimer=null,carIdx=0;
+function startCar(e){stopCar();
+  const names=MAIN_DISTRICTS.filter(n=>DATA&&DATA.districts&&DATA.districts[n]);
+  if(!names.length||!e)return;
+  const step=()=>{const name=names[carIdx%names.length];carIdx++;
+    try{e.dispatchAction({type:'downplay',seriesIndex:0});
+      e.dispatchAction({type:'highlight',seriesIndex:0,name});
+      e.dispatchAction({type:'showTip',seriesIndex:0,name});}catch(_){}};
+  step();carTimer=setInterval(step,3500);}
+function stopCar(){if(carTimer){clearInterval(carTimer);carTimer=null;}}
 
 /* ============ 各图渲染 ============ */
 function renderDomain(d){(CH.cDomain||mk('cDomain')).setOption(domainBar(d.byDomain,10));}
@@ -316,7 +343,9 @@ function renderMap(d){if(!geoReady)return;const e=CH.cMap||mk('cMap');
   const mapData=Object.entries(d.byDistrict||{}).map(([k,v])=>({name:k,value:v}));
   const max=Math.max(1,...mapData.map(x=>x.value));
   const pts=mapData.map(x=>{const c=CENTER[x.name];return c?{name:x.name,value:c.concat(x.value)}:null}).filter(Boolean);
-  e.setOption({tooltip:{trigger:'item',formatter:p=>Array.isArray(p.value)?`${p.name}<br/>留言 ${fmt(p.value[2])} 条`:`${p.name}<br/>留言 ${fmt(p.value||0)} 条`},
+  e.setOption({tooltip:{trigger:'item',confine:true,backgroundColor:'rgba(10,18,38,.95)',borderColor:'rgba(245,185,66,.5)',
+      borderWidth:1,padding:[10,13],textStyle:{color:'#e9eefc'},extraCssText:'border-radius:8px;box-shadow:0 0 26px rgba(0,0,0,.6)',
+      formatter:p=>districtTip(p.name)},
     visualMap:{min:0,max,left:14,bottom:14,calculable:true,itemHeight:88,
       inRange:{color:['#10213f','#3a4a78','#9a6b1e','#f5b942','#ffe6a8']},textStyle:{color:'#92a6cf'}},
     geo:{map:'hangzhou',roam:false,layoutCenter:['50%','52%'],layoutSize:'96%',
@@ -325,7 +354,12 @@ function renderMap(d){if(!geoReady)return;const e=CH.cMap||mk('cMap');
     series:[{type:'map',map:'hangzhou',geoIndex:0,data:mapData},
       {type:'effectScatter',coordinateSystem:'geo',data:pts,symbolSize:v=>8+24*Math.sqrt((v[2]||0)/max),
        rippleEffect:{brushType:'stroke',scale:3},itemStyle:{color:'#ffd27d',shadowBlur:12,shadowColor:'#f5b942'},zlevel:2}]});
-  if(!e._bound){e._bound=1;e.on('click',p=>{if(p&&p.name&&DATA&&DATA.districts&&DATA.districts[p.name])openDistrict(p.name);});}}
+  if(!e._bound){e._bound=1;
+    e.on('click',p=>{if(p&&p.name&&DATA&&DATA.districts&&DATA.districts[p.name])openDistrict(p.name);});
+    $('cMap').addEventListener('mouseenter',stopCar);
+    $('cMap').addEventListener('mouseleave',()=>{if(!$('modal').classList.contains('on'))startCar(e);});
+  }
+  startCar(e);}
 
 function renderTrend(d){const e=CH.cTrend||mk('cTrend');
   const a=Object.entries(d.byMonth||{}).filter(x=>x[0]).sort();
