@@ -114,7 +114,8 @@ def blank_geo():
 
 
 def dist_slot(geo, name):
-    return geo["districts"].setdefault(name, {"geo": 0, "byStreet": {}, "streetSat": {}, "streetGeo": {}, "points": []})
+    return geo["districts"].setdefault(name, {"geo": 0, "byStreet": {}, "streetSat": {},
+                                              "streetGeo": {}, "streetGeoRaw": {}, "points": []})
 
 
 def add_sat(slot, town, gm):
@@ -125,10 +126,10 @@ def add_sat(slot, town, gm):
 
 
 def add_street_geo(slot, town, lng, lat):
-    """累计某街道的坐标和（finalize 求质心，用于区内街道气泡图）。"""
+    """累计某街道的坐标和到 streetGeoRaw（finalize 求质心，用于区内街道气泡图）。"""
     if not town:
         return
-    g = slot.setdefault("streetGeo", {}).setdefault(town, [0.0, 0.0, 0])
+    g = slot.setdefault("streetGeoRaw", {}).setdefault(town, [0.0, 0.0, 0])
     g[0] += lng; g[1] += lat; g[2] += 1
 
 
@@ -138,9 +139,12 @@ def finalize(geo, out):
             dd["byStreet"] = dict(sorted(dd["byStreet"].items(), key=lambda x: -x[1])[:15])
         # streetSat 只保留 byStreet 里的街道
         dd["streetSat"] = {k: v for k, v in dd.get("streetSat", {}).items() if k in dd["byStreet"]}
-        sg = dd.get("streetGeo", {})
-        dd["streetGeo"] = {k: [round(v[0] / v[2], 5), round(v[1] / v[2], 5)]
-                           for k, v in sg.items() if v[2] and k in dd["byStreet"]}
+        raw = dd.get("streetGeoRaw", {})
+        sg = dd.get("streetGeo", {})    # 保留历史质心，仅更新有新数据的街道
+        for town, r in raw.items():
+            if r[2] and town in dd["byStreet"]:
+                sg[town] = [round(r[0] / r[2], 5), round(r[1] / r[2], 5)]
+        dd["streetGeo"] = {k: v for k, v in sg.items() if k in dd["byStreet"]}
         dd["points"] = dd["points"][-POINTS_CAP:]
     geo["updated"] = now_cn().isoformat(timespec="seconds")
     json.dump(geo, open(out, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
