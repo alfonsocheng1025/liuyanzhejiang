@@ -49,8 +49,8 @@
 
   #main{height:936px;display:grid;grid-template-columns:436px 1fr 436px;gap:14px;padding:14px 16px}
   /* 低分督办全局滚动栏 */
-  .lowbar{height:46px;margin:0 16px 12px;display:flex;align-items:center;border:1px solid rgba(255,107,91,.32);border-radius:8px;background:rgba(28,12,12,.45);overflow:hidden}
-  .lowbar-lbl{flex:0 0 auto;padding:0 18px;height:100%;display:flex;align-items:center;color:#ff9b8f;font-weight:800;font-size:15px;letter-spacing:1px;background:rgba(255,107,91,.1);border-right:1px solid rgba(255,107,91,.32)}
+  .lowbar{height:46px;margin:0 16px 12px;display:flex;align-items:center;border:1px solid var(--line2);border-radius:8px;background:rgba(16,26,52,.5);overflow:hidden}
+  .lowbar-lbl{flex:0 0 auto;padding:0 18px;height:100%;display:flex;align-items:center;color:var(--gold-b);font-weight:800;font-size:15px;letter-spacing:1px;background:rgba(245,185,66,.08);border-right:1px solid var(--line)}
   .lowmar{flex:1;overflow:hidden;position:relative;height:100%}
   .lm-track{position:absolute;top:0;left:0;height:100%;white-space:nowrap;display:flex;align-items:center;animation:marq linear infinite;will-change:transform}
   .lowmar:hover .lm-track{animation-play-state:paused}
@@ -482,12 +482,14 @@ function applyScope(o,label){
   (CH.cStreetSat||mk('cStreetSat')).setOption(streetSatBar(isAll?mergeStreetSat():(o.streetSat||{}),3));
   if(isAll){$('streetTag').innerHTML='<span style="color:var(--txt3)">全市·按街道留言量</span>';$('streetSatTitle').textContent='全市街道满意度';
     $('maparea').classList.remove('focus');$('mapTitle').textContent='杭州主城区留言热力';$('distInfo').style.display='none';
+    clearInsetDot();$('riskAlert').classList.remove('on');
     if(CH.cMap)requestAnimationFrame(()=>CH.cMap.resize());}
   else{const cov=(o.streetCov!=null)?o.streetCov:0;
     $('streetTag').innerHTML='▶ <span style="color:#ffd27d;font-weight:700">'+label+'</span> <span style="color:var(--txt3)">留言量·覆盖'+cov+'%</span>';
     $('streetSatTitle').textContent=label+'·街道满意度';
-    if(DMAP[label]){$('maparea').classList.add('focus');$('mapTitle').textContent=label+' · 街道分布';renderDistFocus(label);
+    if(amapReady||DMAP[label]){$('maparea').classList.add('focus');$('mapTitle').textContent=label+' · 街道分布';renderDistFocus(label);
       $('distInfo').innerHTML=distInfoHTML(label);$('distInfo').style.display='block';
+      setInsetDot(label);showDistrictCrisis(label);
       requestAnimationFrame(()=>{CH.cMap&&CH.cMap.resize();CH.cDistFocus&&CH.cDistFocus.resize();});}
     else{$('maparea').classList.remove('focus');$('distInfo').style.display='none';}}}
 function distInfoHTML(name){const dd=DATA.districts&&DATA.districts[name];if(!dd)return '';
@@ -518,15 +520,39 @@ function renderDistFocus(name){const dd=DATA.districts&&DATA.districts[name];if(
     const c=[(Math.min(...lngs)+Math.max(...lngs))/2,(Math.min(...lats)+Math.max(...lats))/2];
     const span=Math.max(Math.max(...lngs)-Math.min(...lngs),Math.max(...lats)-Math.min(...lats));
     const zoom=span>0.28?10.8:span>0.14?11.6:12.3;
-    e.setOption({amap:{center:c,zoom:zoom,mapStyle:'amap://styles/darkblue',resizeEnable:true,renderOnMoving:false},
-      tooltip:distTip,series:[bubbleSeries(data,max,'amap')]},true);
-    try{const am=e.getModel().getComponent('amap').getAMap();am.setZoomAndCenter(zoom,c);}catch(_){}
+    if(!e._amapInit){   // 首次：建高德底图；之后：平移+换气泡(不能 notMerge,否则实例不重定位)
+      e.setOption({amap:{center:c,zoom:zoom,mapStyle:'amap://styles/darkblue',resizeEnable:true},tooltip:distTip,series:[bubbleSeries(data,max,'amap')]});
+      e._amapInit=true;
+    }else{
+      e.setOption({series:[bubbleSeries(data,max,'amap')]});
+    }
+    try{const am=e.getModel().getComponent('amap').getAMap();if(am)am.setZoomAndCenter(zoom,c);}catch(_){}
     return;}
   if(!DMAP[name])return;
   e.setOption({geo:{map:name,roam:false,layoutCenter:['42%','52%'],layoutSize:'92%',
       itemStyle:{areaColor:'#0f2342',borderColor:'#3f6fb0',borderWidth:1.4,shadowColor:'rgba(74,163,255,.45)',shadowBlur:22},
       emphasis:{disabled:true},label:{show:false}},
     tooltip:distTip,series:[bubbleSeries(data,max,'geo')]},true);}
+// 左上角总图：隐藏区名 + 当前区红点指示
+function setInsetDot(name){if(!CH.cMap)return;
+  CH.cMap.setOption({series:[{},{id:'curdot',type:'effectScatter',coordinateSystem:'geo',geoIndex:0,
+    data:CENTER[name]?[{value:CENTER[name]}]:[],symbolSize:12,rippleEffect:{brushType:'stroke',scale:4.5},
+    itemStyle:{color:'#ff3b30',shadowBlur:12,shadowColor:'#ff3b30'},zlevel:6}]});}
+function clearInsetDot(){if(CH.cMap)CH.cMap.setOption({series:[{},{id:'curdot',data:[]}]});}
+// 当前区危机(红色)预警弹窗
+function showDistrictCrisis(name){const reds=((RISK&&RISK.points)||[]).filter(p=>p.area===name&&p.level==='红');const el=$('riskAlert');
+  if(!reds.length){el.classList.remove('on');return;}
+  $('raSub').textContent=name+' · 高危 '+reds.length+' 项';
+  $('raList').innerHTML=reds.slice(0,4).map(p=>`<div class="ra-item"><div class="ra-h"><span class="ra-dot"></span>${esc(p.topic)}<span class="ra-c">${p.count}条·距今${p.days}天</span></div><div class="ra-j">${esc(p.judge||(p.signals||[]).join('、'))}</div>${p.advice?`<div class="ra-a">▶ 处置建议：${esc(p.advice)}</div>`:''}</div>`).join('');
+  el.classList.remove('min');el.classList.add('on');}
+// 底栏：最新诉求滚动(内容+时间)
+function renderRecentBar(d){const rec=(d.recent||[]).slice(0,40);const el=$('riskMar');
+  $('riskLbl').textContent='📢 最新诉求';
+  if(!rec.length){el.innerHTML='<div class="lm-track"><span class="lm">暂无</span></div>';return;}
+  const item=m=>`<span class="lm"><b>${esc(m.district||m.forum||'')}</b> ${esc(m.title||'')}<i>${m.date||''}</i></span>`;
+  const html=rec.map(item).join('<span class="lmsep">◆</span>');
+  el.innerHTML=`<div class="lm-track">${html}<span class="lmsep">◆</span>${html}</div>`;
+  el.querySelector('.lm-track').style.animationDuration=Math.max(50,rec.length*3.2)+'s';}
 const SHORT={'上城区':'上城','拱墅区':'拱墅','西湖区':'西湖','滨江区':'滨江','萧山区':'萧山','余杭区':'余杭','临平区':'临平','钱塘区':'钱塘'};
 function stripKw(kw,label){const s=SHORT[label];if(!s)return kw;const o={};for(const k in kw)if(k.indexOf(s)<0)o[k]=kw[k];return o;}
 function mergeStreets(){const m={};for(const dd of Object.values((DATA&&DATA.districts)||{}))for(const k in (dd.byStreet||{}))m[k]=(m[k]||0)+dd.byStreet[k];return m;}
@@ -593,9 +619,9 @@ function renderMap(d){if(!geoReady)return;const e=CH.cMap||mk('cMap');
       inRange:{color:['#10213f','#3a4a78','#9a6b1e','#f5b942','#ffe6a8']},textStyle:{color:'#92a6cf',fontSize:10}},
     geo:{map:'hangzhou',roam:false,layoutCenter:['50%','52%'],layoutSize:'96%',
       itemStyle:{areaColor:'#0d1830',borderColor:'rgba(120,160,230,.35)',borderWidth:1},
-      emphasis:{itemStyle:{areaColor:'#243a66'},label:{color:'#fff'}},label:{show:true,color:'#9fb3da',fontSize:11}},
+      emphasis:{itemStyle:{areaColor:'#243a66'},label:{show:false}},label:{show:false}},
     series:[{type:'map',map:'hangzhou',geoIndex:0,data:mapData,
-      label:{show:true,color:'#9fb3da',fontSize:11},emphasis:{label:{color:'#fff'}}}]});
+      label:{show:false},emphasis:{label:{show:false}}}]});
   if(!e._bound){e._bound=1;
     e.on('click',p=>{if(p&&p.name&&DATA&&DATA.districts&&DATA.districts[p.name])openDistrict(p.name);});
     $('cMap').addEventListener('mouseenter',stopCar);
@@ -652,8 +678,7 @@ async function refresh(){const d=await loadData();
     t.streetSat=g.streetSat||{};t.streetGeo=g.streetGeo||{};t.points=g.points||[];
     t.streetCov=t.count?Math.round(100*(g.geo||0)/t.count):0;}}
   RISK=null;for(const u of ['/api/risk','./risk.json']){try{const r=await fetch(u+'?t='+Date.now(),{cache:'no-store'});if(r.ok){RISK=await r.json();break;}}catch(e){}}
-  renderKPI(d);showAll();renderMap(d);
-  if(RISK){renderRiskBar(RISK);riskAlert(RISK);}
+  renderKPI(d);renderRecentBar(d);showAll();renderMap(d);
   nextAt=Date.now()+REFRESH_MS;setMeta(d);}
 
 /* ============ 启动 ============ */
