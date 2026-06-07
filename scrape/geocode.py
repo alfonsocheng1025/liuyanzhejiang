@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-实体提取 + 高德地理编码 —— 把留言落点到街道/经纬度，补强街道级数据
-=================================================================
-数据源没有街道字段、datav 也无街道边界。本脚本：
-  1) 从留言正文/标题正则提取地点实体（小区/花园/路/公司/医院/学校…）
-  2) 调高德地理编码 API（需 AMAP_KEY 环境变量）得到 经纬度 + 所属街道(township)
-  3) 写入 data.json：各区 byStreet 用地理编码结果覆盖（更准），并新增 points 点位用于热力图
-  4) 实体→结果 落盘缓存(.geocache.json)，重复小区不重复请求；限速友好
+实体提取 + 高德地理编码 —— 把留言落点到经纬度/街道，产出 geo.json（与每10分钟的 data.json 解耦）
+=====================================================================================
+数据源无街道字段、datav 无街道边界，故：正则抽实体(小区/路/公司…) → 高德地理编码 → 经纬度+街道。
 
-用法：
-  set AMAP_KEY=你的高德web服务key            # Windows PowerShell: $env:AMAP_KEY="..."
-  python geocode.py --csv ../shenghang_zhejiang_hangzhou.csv --data ../data.json --out ../data.json
-  python geocode.py --dry-run                 # 只统计实体抽取覆盖率，不联网
+两种模式：
+  full —— 用历史 CSV 全量地理编码（一次性建底图），并记录每版块水位线 wm（已处理最大 tid）
+      python geocode.py --mode full --csv ../shenghang_zhejiang_hangzhou.csv --out ../geo.json
+  live —— 读 data.json 的 recent，只地理编码 tid>wm 的"新留言"，增量并入 geo.json（每10分钟 Action 调用）
+      python geocode.py --mode live --data ../data.json --out ../geo.json
 
-申请 key：https://lbs.amap.com → 控制台 → 应用管理 → 新建「Web服务」类型 key（免费）
+需 AMAP_KEY 环境变量（高德 Web 服务 key，免费）。实体→结果落盘缓存 .geocache.json，重复不重复请求。
+geo.json 结构：{updated, wm:{fid:tid}, districts:{区名:{geo:已编码数, byStreet:{街道:数}, points:[[lng,lat]]}}}
 """
 import argparse
 import csv
@@ -23,23 +21,23 @@ import os
 import re
 import sys
 import time
+from collections import Counter, defaultdict
 
 import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from zj_live import TARGET, load_store, write_store  # 复用版块定义与读写
+from zj_live import TARGET, now_cn
 
 CACHE_FILE = ".geocache.json"
 AMAP_GEO = "https://restapi.amap.com/v3/geocode/geo"
 AMAP_REGEO = "https://restapi.amap.com/v3/geocode/regeo"
+POINTS_CAP = 600   # 每区热力点位上限（按 tid 取最新）
 
-# 地点/POI 实体：2-8 个字 + 常见后缀
 POI_RE = re.compile(
     r'[一-龥A-Za-z0-9]{2,8}'
     r'(?:小区|花园|公寓|大厦|广场|家园|名苑|苑|公馆|新村|村|社区|路|街|大道|'
     r'工业园|产业园|科技园|创业园|商务区|公司|工厂|厂|医院|卫生院|学校|学院|大学|'
     r'中学|小学|幼儿园|市场|中心|站|桥)')
-# 噪声词（提取到也无意义）
 NOISE = {"该公司", "贵公司", "本公司", "物业公司", "开发商", "建筑公司", "公交车", "服务中心", "政务中心"}
 
 
@@ -48,8 +46,7 @@ def extract_entities(text):
     for m in POI_RE.findall(text or ""):
         if m in NOISE or m in seen:
             continue
-        seen.add(m)
-        out.append(m)
+        seen.add(m); out.append(m)
     return out[:3]
 
 
@@ -66,133 +63,193 @@ def save_cache(c):
     json.dump(c, open(CACHE_FILE, "w", encoding="utf-8"), ensure_ascii=False)
 
 
-def amap_geocode(addr, key, district, delay=0.25):
-    """返回 (lng, lat, township)；失败返回 None。"""
+def amap_regeo(loc, key, delay):
     try:
         time.sleep(delay)
-        r = requests.get(AMAP_GEO, params={"key": key, "address": addr, "city": "杭州"}, timeout=12)
-        d = r.json()
+        d = requests.get(AMAP_REGEO, params={"key": key, "location": loc, "extensions": "base"}, timeout=12).json()
+        if d.get("status") == "1":
+            return d.get("regeocode", {}).get("addressComponent", {}).get("township") or ""
+    except Exception:
+        pass
+    return ""
+
+
+def amap_geocode(addr, key, district, delay):
+    try:
+        time.sleep(delay)
+        d = requests.get(AMAP_GEO, params={"key": key, "address": addr, "city": "杭州"}, timeout=12).json()
         if d.get("status") == "1" and d.get("geocodes"):
             g = d["geocodes"][0]
-            # 校验落在目标区
             if district and g.get("district") and district not in g.get("district"):
                 return None
             loc = g.get("location") or ""
             if "," not in loc:
                 return None
             lng, lat = loc.split(",")
-            town = g.get("township") or ""
-            if not town:  # 地理编码没给街道 → 逆地理编码补
-                town = amap_regeo(loc, key, delay)
-            return float(lng), float(lat), town
+            town = g.get("township") or amap_regeo(loc, key, delay)
+            return [round(float(lng), 5), round(float(lat), 5), town]
     except Exception as e:
         print(f"  [geo err] {addr}: {e}", file=sys.stderr)
     return None
 
 
-def amap_regeo(loc, key, delay=0.25):
-    try:
-        time.sleep(delay)
-        r = requests.get(AMAP_REGEO, params={"key": key, "location": loc, "extensions": "base"}, timeout=12)
-        d = r.json()
-        if d.get("status") == "1":
-            comp = d.get("regeocode", {}).get("addressComponent", {})
-            return comp.get("township") or ""
-    except Exception:
-        pass
-    return ""
+def geocode_record(district, text, key, cache, delay):
+    """返回 ([lng,lat], township) 或 None。"""
+    ents = extract_entities(text)
+    if not ents:
+        return None
+    ck = f"{district}|{ents[0]}"
+    if ck in cache:
+        res = cache[ck]
+    else:
+        res = amap_geocode(f"{district}{ents[0]}", key, district, delay)
+        cache[ck] = res
+    if res:
+        return [res[0], res[1]], res[2]
+    return None
 
 
-def read_rows(csv_path):
+def blank_geo():
+    return {"updated": "", "wm": {}, "districts": {}}
+
+
+def dist_slot(geo, name):
+    return geo["districts"].setdefault(name, {"geo": 0, "byStreet": {}, "streetSat": {}, "points": []})
+
+
+def add_sat(slot, town, gm):
+    """记录某街道的满意度评分（态度 1-5★）。"""
+    if town and 1 <= gm <= 5:
+        ss = slot.setdefault("streetSat", {}).setdefault(town, {"s": 0, "c": 0})
+        ss["s"] += gm; ss["c"] += 1
+
+
+def finalize(geo, out):
+    for dd in geo["districts"].values():
+        if len(dd["byStreet"]) > 15:
+            dd["byStreet"] = dict(sorted(dd["byStreet"].items(), key=lambda x: -x[1])[:15])
+        # streetSat 只保留 byStreet 里的街道
+        dd["streetSat"] = {k: v for k, v in dd.get("streetSat", {}).items() if k in dd["byStreet"]}
+        dd["points"] = dd["points"][-POINTS_CAP:]
+    geo["updated"] = now_cn().isoformat(timespec="seconds")
+    json.dump(geo, open(out, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+
+
+def need_key():
+    k = os.environ.get("AMAP_KEY")
+    if not k:
+        sys.exit("缺少 AMAP_KEY 环境变量（高德 Web 服务 key）。")
+    return k
+
+
+def mode_full(csv_path, out, delay, limit):
+    key = need_key()
+    cache = load_cache()
+    geo = blank_geo()
     rows = []
+    maxtid = {}
     with open(csv_path, encoding="utf-8-sig") as f:
         for r in csv.DictReader(f):
             try:
-                fid = int(r.get("forum_fid") or 0)
+                fid = int(r.get("forum_fid") or 0); tid = int(r.get("tid") or 0)
             except ValueError:
                 continue
             meta = TARGET.get(fid)
-            if not meta or not meta[2]:   # 仅 8 主城区（有 district 的）
+            if not meta or not meta[2]:
                 continue
-            rows.append((meta[2], (r.get("subject") or "") + (r.get("content") or "")))
-    return rows
+            maxtid[fid] = max(maxtid.get(fid, 0), tid)
+            try:
+                gm = int(r.get("grade_manner") or 0)
+            except ValueError:
+                gm = 0
+            rows.append((fid, meta[2], tid, (r.get("subject") or "") + (r.get("content") or ""), gm))
+    geo["wm"] = {str(k): v for k, v in maxtid.items()}
+    per_pts = defaultdict(list)   # district -> [(tid,[lng,lat])]
+    done = defaultdict(int); n = 0
+    for fid, dname, tid, text, gm in rows:
+        if limit and done[dname] >= limit:
+            continue
+        res = geocode_record(dname, text, key, cache, delay)
+        n += 1
+        if n % 50 == 0:
+            save_cache(cache); print(f"\r  已处理 {n}", end="", file=sys.stderr)
+        if res:
+            pt, town = res
+            slot = dist_slot(geo, dname)
+            slot["geo"] += 1; done[dname] += 1
+            if town:
+                slot["byStreet"][town] = slot["byStreet"].get(town, 0) + 1
+                add_sat(slot, town, gm)
+            per_pts[dname].append((tid, pt))
+    save_cache(cache); print()
+    for dname, lst in per_pts.items():
+        lst.sort(key=lambda x: x[0])           # 按 tid 升序，finalize 取最新
+        dist_slot(geo, dname)["points"] = [p for _, p in lst]
+    finalize(geo, out)
+    for n2, dd in geo["districts"].items():
+        print(f"  {n2}: 编码 {dd['geo']} | 街道 {len(dd['byStreet'])} | 点位 {len(dd['points'])}")
+    print(f"[full] → {out}（缓存 {len(cache)}）")
+
+
+def mode_live(data_path, out, delay):
+    key = need_key()
+    cache = load_cache()
+    geo = json.load(open(out, encoding="utf-8")) if os.path.exists(out) else blank_geo()
+    geo.setdefault("wm", {}); geo.setdefault("districts", {})
+    data = json.load(open(data_path, encoding="utf-8"))
+    new_max = {}
+    added = 0
+    for it in data.get("recent", []):
+        d = it.get("district")
+        if not d:
+            continue
+        fid = it.get("fid"); tid = it.get("tid", 0)
+        if tid <= geo["wm"].get(str(fid), 0):
+            continue
+        new_max[fid] = max(new_max.get(fid, 0), tid)
+        res = geocode_record(d, (it.get("title", "") + it.get("content", "")), key, cache, delay)
+        if res:
+            pt, town = res
+            slot = dist_slot(geo, d)
+            slot["geo"] += 1; added += 1
+            if town:
+                slot["byStreet"][town] = slot["byStreet"].get(town, 0) + 1
+                add_sat(slot, town, it.get("gManner", 0))
+            slot["points"].append(pt)
+    for fid, mt in new_max.items():
+        geo["wm"][str(fid)] = max(geo["wm"].get(str(fid), 0), mt)
+    save_cache(cache)
+    finalize(geo, out)
+    print(f"[live] 新增编码 {added} 条 → {out}")
 
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--mode", choices=["full", "live", "dry-run"], default="full")
     ap.add_argument("--csv", default="../shenghang_zhejiang_hangzhou.csv")
     ap.add_argument("--data", default="../data.json")
-    ap.add_argument("--out", default="../data.json")
-    ap.add_argument("--dry-run", action="store_true", help="只统计实体抽取覆盖率，不联网")
-    ap.add_argument("--limit", type=int, default=0, help="每区最多地理编码多少条(省额度，0=不限)")
-    ap.add_argument("--delay", type=float, default=0.25)
+    ap.add_argument("--out", default="../geo.json")
+    ap.add_argument("--delay", type=float, default=0.3)
+    ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
-
-    rows = read_rows(args.csv)
-    from collections import Counter, defaultdict
-    has = sum(1 for _, t in rows if extract_entities(t))
-    print(f"[实体抽取] {len(rows)} 条留言，{has} 条含地点实体 ({100*has/max(1,len(rows)):.0f}%)")
-    by_dist = defaultdict(int); by_dist_hit = defaultdict(int)
-    for dname, t in rows:
-        by_dist[dname] += 1
-        if extract_entities(t):
-            by_dist_hit[dname] += 1
-    for d in by_dist:
-        print(f"   {d}: {100*by_dist_hit[d]/by_dist[d]:.0f}% 含实体")
-
-    if args.dry_run:
-        return
-
-    key = os.environ.get("AMAP_KEY")
-    if not key:
-        sys.exit("缺少 AMAP_KEY 环境变量。申请：https://lbs.amap.com（Web服务 key），再设置后重跑。")
-
-    cache = load_cache()
-    store = load_store(args.data)
-    per = defaultdict(lambda: {"street": Counter(), "points": [], "geo": 0, "tot": 0})
-    n_calls = 0
-    for i, (dname, t) in enumerate(rows):
-        per[dname]["tot"] += 1
-        if args.limit and per[dname]["geo"] >= args.limit:
-            continue
-        ents = extract_entities(t)
-        if not ents:
-            continue
-        ent = ents[0]
-        ckey = f"{dname}|{ent}"
-        if ckey in cache:
-            res = cache[ckey]
-        else:
-            res = amap_geocode(f"{dname}{ent}", key, dname, args.delay)
-            n_calls += 1
-            cache[ckey] = res
-            if n_calls % 50 == 0:
-                save_cache(cache)
-                print(f"\r  已请求 {n_calls} 次，进度 {i}/{len(rows)}", end="", file=sys.stderr)
-        if res:
-            lng, lat, town = res
-            per[dname]["geo"] += 1
-            if town:
-                per[dname]["street"][town] += 1
-            per[dname]["points"].append([round(lng, 5), round(lat, 5)])
-    save_cache(cache)
-    print()
-
-    # 合并进 data.json：地理编码结果覆盖 byStreet + 写 points
-    for dname, agg in per.items():
-        dd = store.get("districts", {}).get(dname)
-        if not dd:
-            continue
-        if agg["street"]:
-            dd["byStreet"] = dict(agg["street"].most_common(15))
-        # 点位按经纬度聚合计数（同坐标合并，作为热力权重）
-        pc = Counter((round(x[0], 4), round(x[1], 4)) for x in agg["points"])
-        dd["points"] = [[k[0], k[1], v] for k, v in pc.most_common(400)]
-        cov = 100 * agg["geo"] / max(1, agg["tot"])
-        print(f"  {dname}: 地理编码 {agg['geo']}/{agg['tot']} ({cov:.0f}%) | 街道 {len(agg['street'])} | 点位 {len(dd['points'])}")
-
-    write_store(store, args.out)
-    print(f"[完成] 已写入 {args.out}（缓存 {len(cache)} 条实体）")
+    if args.mode == "dry-run":
+        rows = 0; hit = 0
+        with open(args.csv, encoding="utf-8-sig") as f:
+            for r in csv.DictReader(f):
+                try:
+                    fid = int(r.get("forum_fid") or 0)
+                except ValueError:
+                    continue
+                if not (TARGET.get(fid) and TARGET[fid][2]):
+                    continue
+                rows += 1
+                if extract_entities((r.get("subject") or "") + (r.get("content") or "")):
+                    hit += 1
+        print(f"[dry-run] {rows} 条，{hit} 含实体 ({100*hit/max(1,rows):.0f}%)")
+    elif args.mode == "full":
+        mode_full(args.csv, args.out, args.delay, args.limit)
+    else:
+        mode_live(args.data, args.out, args.delay)
 
 
 if __name__ == "__main__":

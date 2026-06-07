@@ -15,5 +15,6 @@ __pycache__/
 .crawl_progress.json
 .failed_forums.txt
 
-# 地理编码缓存（含请求结果，本地保留即可）
+# 地理编码 / 风险研判缓存（含请求结果，本地保留即可）
 .geocache.json
+.riskcache.json

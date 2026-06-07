@@ -30,21 +30,39 @@ jobs:
       - name: 安装依赖
         run: pip install requests jieba
 
-      - name: 拉取 data 分支已累积的数据（首次不存在则用种子）
+      - name: 拉取 data 分支已累积数据（首次不存在则用种子）
         run: |
-          curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/data/data.json?t=$(date +%s)" -o data.json \
-            && echo "已载入 data 分支累积数据" \
-            || echo "data 分支尚不存在，使用 main 的种子 data.json 起步"
+          base="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/data"
+          curl -fsSL "$base/data.json?t=$(date +%s)" -o data.json && echo "载入 data 分支 data.json" || echo "用 main 种子 data.json"
+          curl -fsSL "$base/geo.json?t=$(date +%s)"  -o geo.json  && echo "载入 data 分支 geo.json"  || echo "用 main 种子 geo.json"
+          curl -fsSL "$base/.geocache.json?t=$(date +%s)" -o .geocache.json && echo "载入地理编码缓存" || echo "缓存为空，新建"
+          curl -fsSL "$base/risk.json?t=$(date +%s)" -o risk.json && echo "载入 risk.json" || echo "用 main 种子 risk.json"
+          curl -fsSL "$base/.riskcache.json?t=$(date +%s)" -o .riskcache.json && echo "载入研判缓存" || echo "研判缓存为空"
 
       - name: 增量抓取
         run: python scrape/zj_live.py --mode update --data data.json --out data.json --delay 2.0
 
-      - name: 推送到 data 分支（单文件、单提交，避免历史膨胀）
+      - name: 增量地理编码（仅当轮新留言；无 key 则跳过）
+        env:
+          AMAP_KEY: ${{ secrets.AMAP_KEY }}
+        run: |
+          if [ -n "$AMAP_KEY" ]; then
+            python scrape/geocode.py --mode live --data data.json --out geo.json --delay 0.3
+          else
+            echo "未配置 AMAP_KEY secret，跳过地理编码（geo.json 维持原样）"
+          fi
+
+      - name: 社会风险研判（规则 + DeepSeek；无 key 仅出规则）
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: python scrape/risk.py --data data.json --out risk.json
+
+      - name: 推送到 data 分支（data.json + geo.json + risk.json + 缓存）
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout --orphan data_tmp
           git rm -rf --cached . >/dev/null 2>&1 || true
-          git add -f data.json
+          git add -f data.json geo.json risk.json .geocache.json .riskcache.json 2>/dev/null || git add -f data.json
           git commit -m "data: $(date -u +%FT%TZ)" || { echo "无变化，跳过"; exit 0; }
           git push -f origin data_tmp:data

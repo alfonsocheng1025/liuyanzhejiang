@@ -190,6 +190,7 @@ def blank_store():
         "kw": {},          # 诉求热词：word -> count（写盘时裁剪到 TOP）
         "districts": {},   # 各主城区画像：name -> {count,sat,byDomain,byStatus,kw,low}
         "low": [],         # 全局低分留言（态度/速度 ≤2★），写盘裁剪
+        "pending": [],     # 未办结池（待回复/处理中/办理中），供风险预警，写盘裁剪
         "recent": [],
     }
 
@@ -197,7 +198,7 @@ def blank_store():
 def blank_district():
     return {"count": 0,
             "sat": {"mSum": 0, "mCnt": 0, "sSum": 0, "sCnt": 0, "dist": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0}},
-            "byDomain": {}, "byStatus": {}, "byType": {}, "byStreet": {}, "kw": {}, "low": []}
+            "byMonth": {}, "byDomain": {}, "byStatus": {}, "byType": {}, "byStreet": {}, "kw": {}, "low": []}
 
 
 def is_low(rec):
@@ -210,6 +211,19 @@ def low_msg(rec):
     return {"tid": rec["tid"], "title": rec["title"], "content": (rec["content"] or "")[:140],
             "date": rec["date"], "forum": rec["forum"], "district": rec.get("district"),
             "gm": rec.get("gManner", 0), "gs": rec.get("gSpeed", 0), "status": rec["status"]}
+
+
+PENDING_SET = {"待回复", "处理中", "办理中", "受理", "已受理"}  # 未办结状态
+
+
+def is_pending(rec):
+    return rec.get("status") in PENDING_SET
+
+
+def pending_msg(rec):
+    return {"tid": rec["tid"], "title": rec["title"], "content": (rec["content"] or "")[:240],
+            "date": rec["date"], "forum": rec["forum"], "district": rec.get("district"),
+            "domain": rec["domain"], "type": rec["type"], "status": rec["status"]}
 
 
 def _add_sat(sat, rec):
@@ -299,12 +313,15 @@ def add_records(store, records):
             store["kw"][w] = store["kw"].get(w, 0) + 1
         if is_low(rec):
             store["low"].append(low_msg(rec))
+        if is_pending(rec):
+            store["pending"].append(pending_msg(rec))
         # 各主城区画像
         if rec.get("district"):
             dd = store["districts"].setdefault(rec["district"], blank_district())
             for _k, _v in blank_district().items():
                 dd.setdefault(_k, _v)   # 兼容旧 schema：补齐缺失键，防 KeyError
             dd["count"] += 1
+            _inc(dd["byMonth"], ym)
             _add_sat(dd["sat"], rec)
             _inc(dd["byDomain"], rec["domain"])
             _inc(dd["byStatus"], rec["status"])
@@ -433,6 +450,7 @@ def write_store(store, path):
     if len(store.get("kw", {})) > 400:
         store["kw"] = _topn(store["kw"], 400)
     store["low"] = _trim_low(store.get("low", []), 80)
+    store["pending"] = _trim_low(store.get("pending", []), 400)
     # 各区：热词 TOP40、领域 TOP10、低分留言 TOP30
     for dd in store.get("districts", {}).values():
         if len(dd.get("kw", {})) > 40:
