@@ -66,15 +66,26 @@ install ad hoc, it's gitignored).
   batch and dedups within-batch by id set — this was a real bug: using the live watermark mid-batch
   made out-of-order/lower-tid rows get dropped (seed counted only ~21 of 30k). Keep the snapshot.
 - **`is_handled()` drives 办结率** from `status` (CSV's `has_reply` column is unreliable / all-0).
+- **Satisfaction** (`sat`): `gradeManner`/`gradeSpeed` are 1–5★ ratings (~49% of items rated; ~84%
+  give 4–5). Accumulated as sums/counts + a 1–5 distribution → drives the 群众满意度 gauge.
+- **Keywords** (`kw`): `extract_words()` runs **jieba** (lazy import, no-op if missing) over留言 titles,
+  minus `STOPWORDS` → accumulated word→count, pruned to TOP 400 on write → drives the wordcloud.
+  `jieba` is a real dependency now (requirements.txt + workflow `pip install`).
 - **data.json schema**: `{updated, source, watermark{fid:tid}, totals{all,replied}, byMonth, byDomain,
-  byStatus, byType, byForum{label:{count,fid,level}}, byDistrict{name:n}, recent[≤600 newest]}`.
-  The frontend reads exactly these keys — keep them in sync with `index.html`'s render functions.
+  byStatus, byType, byForum{label:{count,fid,level}}, byDistrict{name:n}, sat{mSum,mCnt,sSum,sCnt,dist},
+  kw{word:count}, recent[≤600 newest]}`. The frontend reads exactly these keys — keep in sync with
+  `index.html`'s render functions. (`byType` is still computed but its donut panel was removed.)
 
 ## `index.html` — the dashboard
 
-- Self-contained: ECharts from a CDN (staticfile primary → jsdelivr fallback), Hangzhou geojson from
-  `geo.datav.aliyun.com/areas_v3/bound/330100_full.json` (district centroids come from
-  `feature.properties.center`). All degrade gracefully if a CDN is unreachable.
+- Self-contained: ECharts + echarts-wordcloud from a CDN (staticfile primary → jsdelivr fallback).
+  Hangzhou geojson is served **locally** from `./hangzhou.geo.json` (committed, ~105KB; datav remote is
+  only a fallback) — this fixed a "地图加载失败（网络受限）" where the viewer's network blocked datav.
+  District centroids come from `feature.properties.center`. Wordcloud degrades to a top-keywords bar if
+  the plugin fails to load.
+- Panels: KPI strip (今日/本月新增, 办结率, 群众满意率), 群众满意度 gauge, 办理状态, 杭州区县热力地图,
+  月度趋势(+环比/同比 badges), 诉求热词云, 最新留言 ticker, 诉求领域 TOP10. (Removed: 诉求类型 donut,
+  版块热度排行 — redundant with domain/map.)
 - **Fixed 1920×1080 design canvas**, scaled to fit any screen via `transform: scale()` in `fit()`.
   Layout is a 3-column CSS grid; panels size with `flex`.
 - Data source order is `['/api/data', './data.json']` (`DATA_SOURCES`); refresh every `REFRESH_MS`
