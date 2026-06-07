@@ -47,7 +47,17 @@
   .dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:blink 1.4s infinite}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
 
-  #main{height:996px;display:grid;grid-template-columns:436px 1fr 436px;gap:14px;padding:14px 16px}
+  #main{height:936px;display:grid;grid-template-columns:436px 1fr 436px;gap:14px;padding:14px 16px}
+  /* 低分督办全局滚动栏 */
+  .lowbar{height:46px;margin:0 16px 12px;display:flex;align-items:center;border:1px solid rgba(255,107,91,.32);border-radius:8px;background:rgba(28,12,12,.45);overflow:hidden}
+  .lowbar-lbl{flex:0 0 auto;padding:0 18px;height:100%;display:flex;align-items:center;color:#ff9b8f;font-weight:800;font-size:15px;letter-spacing:1px;background:rgba(255,107,91,.1);border-right:1px solid rgba(255,107,91,.32)}
+  .lowmar{flex:1;overflow:hidden;position:relative;height:100%}
+  .lm-track{position:absolute;top:0;left:0;height:100%;white-space:nowrap;display:flex;align-items:center;animation:marq linear infinite;will-change:transform}
+  .lowmar:hover .lm-track{animation-play-state:paused}
+  @keyframes marq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .lm{font-size:13px;color:#e9eefc;padding:0 6px}
+  .lm b{color:#ffd27d} .lm i{color:#ff9b8f;font-style:normal;font-size:12px;margin-left:4px}
+  .lmsep{color:#ff6b5b;margin:0 16px;opacity:.55}
   .col{display:flex;flex-direction:column;gap:14px;min-height:0}
   .panel{position:relative;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:12px 14px 8px;
     min-height:0;display:flex;flex-direction:column;box-shadow:inset 0 0 40px rgba(10,18,40,.5),0 6px 24px rgba(0,0,0,.35);backdrop-filter:blur(3px)}
@@ -156,7 +166,8 @@
         <div class="kpi"><div class="ico">✅</div><div class="v" id="kRate">--<small>%</small></div><div class="l">办结率</div></div>
         <div class="kpi alt"><div class="ico">⭐</div><div class="v" id="kSat">--<small>%</small></div><div class="l">群众满意率</div></div>
       </div>
-      <div class="panel" style="flex:1.2"><div class="pt"><i></i><b>群众满意度</b><span class="sp" id="satTag">SATISFACTION · 1–5★</span></div>
+      <div class="panel" style="flex:.8"><div class="pt"><i></i><b>各区满意率排行</b><span class="sp">RANK · 全8区</span></div><div class="chart" id="cRank"></div></div>
+      <div class="panel" style="flex:1.05"><div class="pt"><i></i><b>群众满意度</b><span class="sp" id="satTag">SATISFACTION · 1–5★</span></div>
         <div class="chart" id="cSat"></div>
         <div class="satdist" id="satDist"></div>
         <div class="satfoot">
@@ -189,6 +200,9 @@
       <div class="panel" style="flex:1.15"><div class="pt"><i></i><b>诉求领域分布</b><span class="sp" id="domainTag">TOP 10 DOMAIN</span></div><div class="chart" id="cDomain"></div></div>
     </div>
   </div>
+
+  <!-- 低分督办全局滚动栏（常驻） -->
+  <div class="lowbar"><div class="lowbar-lbl">🔴 低分督办预警</div><div class="lowmar" id="lowMar"></div></div>
 
   <!-- 区县对比弹窗 -->
   <div class="modal" id="modal">
@@ -375,9 +389,30 @@ function applyScope(o,label){
   (CH.cWord||mk('cWord')).setOption(kwOption(o.kw,[14,58],90));setTag('wordTag',label,'HOT TOPICS');
   (CH.cStatus||mk('cStatus')).setOption(donutMini(o.byStatus,k=>STC[k]||'#7aa0d8'));
   (CH.cType||mk('cType')).setOption(donutMini(o.byType,null,TYPEPAL));
-  setTag('structTag',label,'STRUCTURE');}
+  setTag('structTag',label,'STRUCTURE');
+  renderRank(DATA,o.districts?null:label);}   // 排行常显全8区，高亮当前轮播区
 function spotlight(name){const dd=DATA&&DATA.districts&&DATA.districts[name];if(dd)applyScope(dd,name);}
 function showAll(){if(DATA)applyScope(DATA,'全市');}
+// 各区满意率横向排行（一眼比全8区，高亮当前轮播区）
+function rankColor(r){return r<70?['#7a2a1e','#ff6b5b']:r<80?['#8a5a1e','#e0a93a']:['#9a6b1e','#ffd27d'];}
+function renderRank(d,hl){const arr=Object.entries(d.districts||{}).map(([name,dd])=>({name,rate:satRate(dd.sat)})).sort((a,b)=>a.rate-b.rate);
+  (CH.cRank||mk('cRank')).setOption({grid:{left:8,right:50,top:6,bottom:6,containLabel:true},
+    xAxis:{type:'value',max:100,...AX,axisLabel:{show:false},splitLine:{show:false}},
+    yAxis:{type:'category',data:arr.map(x=>x.name),...AX,axisLabel:{color:'#cdd8f0',fontSize:12}},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>`${p[0].name}<br/>满意率 ${p[0].value}%`},
+    series:[{type:'bar',barWidth:'62%',data:arr.map(x=>{const c=rankColor(x.rate);
+      return {value:+x.rate.toFixed(1),itemStyle:{borderRadius:[0,5,5,0],
+        color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:c[0]},{offset:1,color:c[1]}]),
+        borderColor:x.name===hl?'#fff':'transparent',borderWidth:x.name===hl?2:0,
+        shadowColor:x.name===hl?'#ffd27d':'transparent',shadowBlur:x.name===hl?12:0}};}),
+      label:{show:true,position:'right',color:'#ffd27d',fontSize:12,fontWeight:600,formatter:p=>p.value+'%'}}]});}
+// 低分督办全局横向滚动栏
+function renderLowMar(d){const low=(d.low||[]).slice(0,40);const el=$('lowMar');
+  if(!low.length){el.innerHTML='<div class="lm-track"><span class="lm">暂无低分留言</span></div>';return;}
+  const item=m=>`<span class="lm"><b>${esc(m.district||m.forum||'')}</b> ${esc(m.title||'')}<i>${m.gm?'态度'+m.gm+'★':''}${m.gs?' 速度'+m.gs+'★':''}</i></span>`;
+  const html=low.map(item).join('<span class="lmsep">◆</span>');
+  el.innerHTML=`<div class="lm-track">${html}<span class="lmsep">◆</span>${html}</div>`;
+  el.querySelector('.lm-track').style.animationDuration=Math.max(45,low.length*3)+'s';}
 
 let geoReady=false,CENTER={};
 function renderMap(d){if(!geoReady)return;const e=CH.cMap||mk('cMap');
@@ -457,7 +492,7 @@ function setMeta(d){const up=d.updated?d.updated.replace('T',' ').slice(0,16):'-
 async function refresh(){const d=await loadData();
   if(!d){$('err').style.display='block';$('err').textContent='⚠ 暂无数据：请先运行 seed 生成 data.json，或等待首次抓取。';return;}
   $('err').style.display='none';DATA=d;
-  renderKPI(d);renderTrend(d);renderTicker(d);showAll();renderMap(d);
+  renderKPI(d);renderTrend(d);renderTicker(d);renderLowMar(d);showAll();renderMap(d);
   nextAt=Date.now()+REFRESH_MS;setMeta(d);}
 
 /* ============ 启动 ============ */
