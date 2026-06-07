@@ -115,11 +115,13 @@ def build_points(pending):
         area = members[0].get("district") or members[0].get("forum")
         topic = next(iter(catset), members[0].get("domain") or "其他")
         ent = key.split("|", 1)[1]
+        mindays = min((m["_days"] for m in members), default=99999)
         points.append({
             "key": key,
             "level": level_of(total, catset, count),
             "topic": topic, "area": area, "object": ent,
             "count": count, "days": maxdays, "score": total,
+            "fresh": mindays <= 365,   # 现行(近1年有新留言) vs 历史积压
             "signals": sorted(catset),
             "samples": [{"title": x["title"], "date": x.get("date"), "forum": x.get("forum"),
                          "content": (x.get("content") or "")[:120]} for x in members[:5]],
@@ -155,8 +157,9 @@ def ds_judge(p, key):
             {"role": "system", "content": SYS},
             {"role": "user", "content":
                 f"风险点：地区[{p['area']}] 对象/议题[{p['object']}] 涉及{p['count']}条未办结留言，"
-                f"最久未回复{p['days']}天，命中信号{p['signals']}。代表留言：" +
+                f"留言最久距今{p['days']}天，命中信号{p['signals']}。代表留言：" +
                 " ；".join(f"《{s['title']}》{s['content']}" for s in p["samples"][:4]) +
+                ("（注：留言日期较久，可能为历史积压，研判请据此措辞，勿当作当前突发紧急事态）" if not p.get("fresh") else "") +
                 "  请按要求输出 JSON。"},
         ],
     }

@@ -214,10 +214,20 @@ def low_msg(rec):
 
 
 PENDING_SET = {"待回复", "处理中", "办理中", "受理", "已受理"}  # 未办结状态
+PENDING_MAX_DAYS = 730   # 未办结池只收近 2 年的，聚焦现行问题、避免历史快照失真
 
 
 def is_pending(rec):
     return rec.get("status") in PENDING_SET
+
+
+def within_days(date_str, days):
+    if not date_str:
+        return False
+    try:
+        return (now_cn() - datetime.strptime(date_str[:10], "%Y-%m-%d").replace(tzinfo=CN_TZ)).days <= days
+    except Exception:
+        return False
 
 
 def pending_msg(rec):
@@ -313,7 +323,7 @@ def add_records(store, records):
             store["kw"][w] = store["kw"].get(w, 0) + 1
         if is_low(rec):
             store["low"].append(low_msg(rec))
-        if is_pending(rec):
+        if is_pending(rec):   # 取最新 400 条未办结（写盘按 tid 截断），现行优先、保留近年积压
             store["pending"].append(pending_msg(rec))
         # 各主城区画像
         if rec.get("district"):

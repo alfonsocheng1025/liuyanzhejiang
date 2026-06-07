@@ -114,7 +114,7 @@ def blank_geo():
 
 
 def dist_slot(geo, name):
-    return geo["districts"].setdefault(name, {"geo": 0, "byStreet": {}, "streetSat": {}, "points": []})
+    return geo["districts"].setdefault(name, {"geo": 0, "byStreet": {}, "streetSat": {}, "streetGeo": {}, "points": []})
 
 
 def add_sat(slot, town, gm):
@@ -124,12 +124,23 @@ def add_sat(slot, town, gm):
         ss["s"] += gm; ss["c"] += 1
 
 
+def add_street_geo(slot, town, lng, lat):
+    """累计某街道的坐标和（finalize 求质心，用于区内街道气泡图）。"""
+    if not town:
+        return
+    g = slot.setdefault("streetGeo", {}).setdefault(town, [0.0, 0.0, 0])
+    g[0] += lng; g[1] += lat; g[2] += 1
+
+
 def finalize(geo, out):
     for dd in geo["districts"].values():
         if len(dd["byStreet"]) > 15:
             dd["byStreet"] = dict(sorted(dd["byStreet"].items(), key=lambda x: -x[1])[:15])
         # streetSat 只保留 byStreet 里的街道
         dd["streetSat"] = {k: v for k, v in dd.get("streetSat", {}).items() if k in dd["byStreet"]}
+        sg = dd.get("streetGeo", {})
+        dd["streetGeo"] = {k: [round(v[0] / v[2], 5), round(v[1] / v[2], 5)]
+                           for k, v in sg.items() if v[2] and k in dd["byStreet"]}
         dd["points"] = dd["points"][-POINTS_CAP:]
     geo["updated"] = now_cn().isoformat(timespec="seconds")
     json.dump(geo, open(out, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
@@ -180,6 +191,7 @@ def mode_full(csv_path, out, delay, limit):
             if town:
                 slot["byStreet"][town] = slot["byStreet"].get(town, 0) + 1
                 add_sat(slot, town, gm)
+                add_street_geo(slot, town, pt[0], pt[1])
             per_pts[dname].append((tid, pt))
     save_cache(cache); print()
     for dname, lst in per_pts.items():
@@ -215,6 +227,7 @@ def mode_live(data_path, out, delay):
             if town:
                 slot["byStreet"][town] = slot["byStreet"].get(town, 0) + 1
                 add_sat(slot, town, it.get("gManner", 0))
+                add_street_geo(slot, town, pt[0], pt[1])
             slot["points"].append(pt)
     for fid, mt in new_max.items():
         geo["wm"][str(fid)] = max(geo["wm"].get(str(fid), 0), mt)
