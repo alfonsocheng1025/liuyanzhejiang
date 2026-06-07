@@ -91,6 +91,39 @@
 
   #err{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--txt2);font-size:18px;text-align:center;display:none;z-index:9}
   .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--txt3);font-size:13px}
+
+  /* 区县对比弹窗 */
+  .modal{position:absolute;inset:0;background:rgba(3,6,14,.74);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:50}
+  .modal.on{display:flex;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .mbox{position:relative;width:1580px;height:870px;background:linear-gradient(160deg,#0a1428,#0b1730);
+    border:1px solid var(--line);border-radius:14px;box-shadow:0 0 70px rgba(0,0,0,.6),inset 0 0 70px rgba(10,18,40,.5);padding:20px 24px;display:flex;flex-direction:column}
+  .mbox::before,.mbox::after{content:"";position:absolute;width:22px;height:22px;border:2px solid var(--gold)}
+  .mbox::before{left:-1px;top:-1px;border-right:none;border-bottom:none;border-radius:6px 0 0 0}
+  .mbox::after{right:-1px;bottom:-1px;border-left:none;border-top:none;border-radius:0 0 6px 0}
+  .mhead{display:flex;align-items:center;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:14px}
+  .mtitle b{font-size:30px;font-weight:800;color:#fff;letter-spacing:2px}
+  .mtitle .mk2{color:var(--gold);margin-left:12px;font-size:14px;letter-spacing:1px}
+  .msub{margin-left:20px;font-size:16px;color:var(--txt2)}
+  .msub .d{font-weight:800;color:var(--gold-b);font-variant-numeric:tabular-nums}
+  .cmp{font-size:13px;padding:2px 9px;border-radius:10px;font-weight:700;margin-left:10px}
+  .mclose{margin-left:auto;width:38px;height:38px;border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--gold-b);font-size:18px;cursor:pointer}
+  .mclose:hover{background:rgba(245,185,66,.15)}
+  .mbody{flex:1;display:grid;grid-template-columns:1fr 1fr 1.05fr;gap:16px;min-height:0}
+  .mcol{display:flex;flex-direction:column;gap:16px;min-height:0}
+  .mpanel{background:rgba(12,20,42,.5);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;min-height:0;flex:1}
+  .mpt{font-size:15px;font-weight:700;color:var(--gold-b);letter-spacing:1px;margin-bottom:4px;flex:0 0 auto}
+  .mchart{flex:1;min-height:0}
+  .mstat{flex:0 0 auto;text-align:center;font-size:13px;color:var(--txt2);padding-top:2px}
+  .mstat b{color:var(--gold-b);font-size:16px}
+  .mlow{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:5px}
+  .mlow::-webkit-scrollbar{width:6px}.mlow::-webkit-scrollbar-thumb{background:rgba(245,185,66,.3);border-radius:3px}
+  .lowm{border:1px solid rgba(255,107,91,.28);border-left:3px solid var(--red);border-radius:7px;padding:8px 11px;background:rgba(40,16,16,.28)}
+  .lowm .lt{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+  .lowm .star{font-size:12px;color:#ff9b8f;font-weight:700}
+  .lowm .ld{margin-left:auto;font-size:11px;color:var(--txt3)}
+  .lowm .lti{font-size:13px;color:#ffeede;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .lowm .lco{font-size:12px;color:var(--txt2);line-height:1.4;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 </style>
 </head>
 <body>
@@ -128,7 +161,7 @@
 
     <!-- 中列 -->
     <div class="col">
-      <div class="panel" style="flex:1.75"><div class="pt"><i></i><b>杭州市各区县留言热力</b><span class="sp">HANGZHOU DISTRICTS</span></div>
+      <div class="panel" style="flex:1.75"><div class="pt"><i></i><b>杭州主城区留言热力</b><span class="sp">👆 点击区县看对比</span></div>
         <div class="chart" id="cMap"><div class="loading">地图加载中…</div></div></div>
       <div class="panel" style="flex:1"><div class="pt"><i></i><b>月度留言趋势（含历史）</b>
         <span class="sp"><span class="badge" id="momBadge">环比 --</span><span class="badge" id="yoyBadge">同比 --</span></span></div>
@@ -144,6 +177,32 @@
       <div class="panel" style="flex:1.15"><div class="pt"><i></i><b>诉求领域分布</b><span class="sp">TOP 10 DOMAIN</span></div><div class="chart" id="cDomain"></div></div>
     </div>
   </div>
+
+  <!-- 区县对比弹窗 -->
+  <div class="modal" id="modal">
+    <div class="mbox">
+      <div class="mhead">
+        <div class="mtitle"><b id="mName">--</b><span class="mk2">区县画像 · 对比</span></div>
+        <div class="msub" id="mSub"></div>
+        <div class="mclose" id="mClose">✕</div>
+      </div>
+      <div class="mbody">
+        <div class="mcol">
+          <div class="mpanel"><div class="mpt">群众满意度</div><div class="mchart" id="mSat"></div>
+            <div class="mstat">态度 <b id="mSatM">--</b>★ · 速度 <b id="mSatS">--</b>★ · 参评 <b id="mSatN">--</b> 条</div></div>
+          <div class="mpanel"><div class="mpt">办理状态</div><div class="mchart" id="mStatus"></div></div>
+        </div>
+        <div class="mcol">
+          <div class="mpanel"><div class="mpt">诉求领域 TOP</div><div class="mchart" id="mDomain"></div></div>
+          <div class="mpanel"><div class="mpt">诉求热词</div><div class="mchart" id="mWord"></div></div>
+        </div>
+        <div class="mcol">
+          <div class="mpanel" style="flex:1"><div class="mpt">低分留言 · 督办重点 <span id="mLowN" style="color:var(--red)"></span></div>
+            <div class="mlow" id="mLow"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 <div id="err"></div>
 
@@ -152,6 +211,7 @@
 const REFRESH_MS = 10 * 60 * 1000;
 const DATA_SOURCES = ['/api/data', './data.json'];
 const GEO_SOURCES = ['./hangzhou.geo.json', 'https://geo.datav.aliyun.com/areas_v3/bound/330100_full.json'];
+const MAIN_DISTRICTS = ['上城区','拱墅区','西湖区','滨江区','萧山区','余杭区','临平区','钱塘区'];
 const ECHARTS_CDN = ['https://cdn.staticfile.net/echarts/5.5.1/echarts.min.js',
                      'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js'];
 const WORDCLOUD_CDN = ['https://cdn.staticfile.net/echarts-wordcloud/2.1.0/echarts-wordcloud.min.js',
@@ -188,39 +248,68 @@ const GOLD=['#ffe6a8','#ffd27d','#f5b942','#e09a2c','#c87e1f'];
 const CH={};
 function mk(id){const c=echarts.init($(id),null,{renderer:'canvas'});CH[id]=c;return c;}
 
+/* ====== 可复用图表构建器（大屏 + 弹窗共用）====== */
+function satRate(s){return s&&s.mCnt?100*((+s.dist['4']||0)+(+s.dist['5']||0))/s.mCnt:0;}
+function satGauge(rate,big){return {series:[{type:'gauge',min:0,max:100,startAngle:210,endAngle:-30,radius:'92%',center:['50%','58%'],
+  progress:{show:true,width:big?13:11,roundCap:true,itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#c8902f'},{offset:1,color:'#ffe6a8'}])}},
+  axisLine:{lineStyle:{width:big?13:11,color:[[1,'rgba(120,160,230,.16)']]}},pointer:{show:false},axisTick:{show:false},splitLine:{show:false},
+  axisLabel:{distance:-2,color:'#5f739c',fontSize:9},anchor:{show:false},
+  title:{show:true,offsetCenter:[0,'24%'],color:'#92a6cf',fontSize:12,formatter:'群众满意率'},
+  detail:{valueAnimation:true,offsetCenter:[0,'-6%'],fontSize:big?38:28,fontWeight:'bolder',color:'#ffd27d',formatter:v=>v.toFixed(1)+'%'},
+  data:[{value:rate}]}]};}
+function statusDonut(obj){const a=Object.entries(obj||{}).sort((x,y)=>y[1]-x[1]);
+  return {tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},
+    legend:{orient:'vertical',right:6,top:'center',textStyle:{color:'#cdd8f0',fontSize:12},itemWidth:10,itemHeight:10},
+    series:[{type:'pie',radius:['50%','73%'],center:['34%','52%'],itemStyle:{borderColor:'#0a1020',borderWidth:2},label:{show:false},labelLine:{show:false},
+      data:a.map(x=>({name:x[0],value:x[1],itemStyle:{color:STC[x[0]]||'#7aa0d8'}}))}]};}
+function domainBar(obj,n){const a=Object.entries(obj||{}).sort((x,y)=>y[1]-x[1]).slice(0,n).reverse();
+  return {grid:{left:8,right:54,top:6,bottom:6,containLabel:true},xAxis:{type:'value',...AX},
+    yAxis:{type:'category',data:a.map(x=>x[0]),...AX,axisLabel:{color:'#cdd8f0',fontSize:13}},tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+    series:[{type:'bar',data:a.map(x=>x[1]),barWidth:'58%',itemStyle:{borderRadius:[0,5,5,0],color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#9a6b1e'},{offset:1,color:'#ffd27d'}])},
+      label:{show:true,position:'right',color:'#ffd27d',fontSize:12,fontWeight:600,formatter:p=>fmt(p.value)}}]};}
+function kwOption(obj,sr,topN){const list=Object.entries(obj||{}).sort((x,y)=>y[1]-x[1]).slice(0,topN||60);
+  if(wordReady&&echarts.graphic){return {tooltip:{show:true,formatter:p=>`${p.name}: ${fmt(p.value)} 次`},series:[{type:'wordCloud',
+    shape:'circle',left:'center',top:'center',width:'96%',height:'92%',sizeRange:sr||[14,52],rotationRange:[-28,28],gridSize:6,drawOutOfBound:false,
+    textStyle:{fontWeight:'bold',color:()=>{const c=['#ffe6a8','#ffd27d','#f5b942','#e0a93a','#c8902f','#9fb3da','#7aa0d8'];return c[Math.floor(Math.random()*c.length)];}},
+    emphasis:{textStyle:{color:'#fff'}},data:list.map(x=>({name:x[0],value:x[1]}))}]};}
+  const top=list.slice(0,12).reverse();
+  return {grid:{left:8,right:46,top:6,bottom:6,containLabel:true},xAxis:{type:'value',...AX,axisLabel:{show:false}},
+    yAxis:{type:'category',data:top.map(x=>x[0]),...AX,axisLabel:{color:'#ffd27d',fontSize:13}},
+    series:[{type:'bar',data:top.map(x=>x[1]),barWidth:'60%',itemStyle:{borderRadius:[0,4,4,0],color:'#e09a2c'},label:{show:true,position:'right',color:'#ffd27d',fontSize:11,formatter:p=>p.value}}]};}
+
+/* ====== 区县对比弹窗 ====== */
+let DATA=null;const MCH={};
+function mmk(id){if(MCH[id])MCH[id].dispose();MCH[id]=echarts.init($(id));return MCH[id];}
+function lowCard(m){const sc=[];if(m.gm)sc.push('态度'+m.gm+'★');if(m.gs)sc.push('速度'+m.gs+'★');
+  return `<div class="lowm"><div class="lt"><span class="star">${sc.join(' / ')||'低分'}</span><span class="ld">${m.forum||''} · ${m.date||''}</span></div>
+    <div class="lti">${esc(m.title||'(无标题)')}</div>${m.content?`<div class="lco">${esc(m.content)}</div>`:''}</div>`;}
+function openDistrict(name){const dd=(DATA&&DATA.districts||{})[name];if(!dd)return;
+  $('mName').textContent=name;
+  const s=dd.sat,m=s.mCnt?s.mSum/s.mCnt:0,sp=s.sCnt?s.sSum/s.sCnt:0,rate=satRate(s),crate=satRate(DATA.sat);
+  const dl=rate-crate,up=dl>=0;
+  $('mSub').innerHTML=`留言 <span class="d">${fmt(dd.count)}</span> 条 · 满意率 <span class="d">${rate.toFixed(1)}%</span>`+
+    `<span class="cmp ${up?'bg-dn':'bg-up'}">较全市${up?'▲':'▼'}${Math.abs(dl).toFixed(1)}%</span>`;
+  $('mSatM').textContent=m.toFixed(2);$('mSatS').textContent=sp.toFixed(2);$('mSatN').textContent=fmt(s.mCnt);
+  mmk('mSat').setOption(satGauge(rate,false));
+  mmk('mStatus').setOption(statusDonut(dd.byStatus));
+  mmk('mDomain').setOption(domainBar(dd.byDomain,10));
+  mmk('mWord').setOption(kwOption(dd.kw,[12,40],50));
+  const low=dd.low||[];$('mLowN').textContent=low.length?`(${low.length} 条)`:'(暂无)';
+  $('mLow').innerHTML=low.map(lowCard).join('')||'<div style="color:var(--txt3);font-size:13px;padding:14px">该区暂无低分留言</div>';
+  $('modal').classList.add('on');
+  requestAnimationFrame(()=>Object.values(MCH).forEach(c=>c&&c.resize()));}
+function closeModal(){$('modal').classList.remove('on');}
+
 /* ============ 各图渲染 ============ */
-function renderDomain(d){const e=CH.cDomain||mk('cDomain');
-  const a=Object.entries(d.byDomain||{}).sort((x,y)=>y[1]-x[1]).slice(0,10).reverse();
-  e.setOption({grid:{left:8,right:54,top:8,bottom:6,containLabel:true},
-    xAxis:{type:'value',...AX},yAxis:{type:'category',data:a.map(x=>x[0]),...AX,axisLabel:{color:'#cdd8f0',fontSize:13}},
-    tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
-    series:[{type:'bar',data:a.map(x=>x[1]),barWidth:'58%',
-      itemStyle:{borderRadius:[0,5,5,0],color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#9a6b1e'},{offset:1,color:'#ffd27d'}])},
-      label:{show:true,position:'right',color:'#ffd27d',fontSize:12,fontWeight:600,formatter:p=>fmt(p.value)}}]});}
+function renderDomain(d){(CH.cDomain||mk('cDomain')).setOption(domainBar(d.byDomain,10));}
 
-function renderStatus(d){const e=CH.cStatus||mk('cStatus');
-  const a=Object.entries(d.byStatus||{}).sort((x,y)=>y[1]-x[1]);
-  e.setOption({tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},
-    legend:{orient:'vertical',right:8,top:'center',textStyle:{color:'#cdd8f0',fontSize:13},itemWidth:11,itemHeight:11},
-    series:[{type:'pie',radius:['52%','74%'],center:['34%','52%'],itemStyle:{borderColor:'#0a1020',borderWidth:2},
-      label:{show:false},labelLine:{show:false},
-      data:a.map(x=>({name:x[0],value:x[1],itemStyle:{color:STC[x[0]]||'#7aa0d8'}}))}]});}
+function renderStatus(d){(CH.cStatus||mk('cStatus')).setOption(statusDonut(d.byStatus));}
 
-function renderSat(d){const s=d.sat||{};const m=s.mCnt?s.mSum/s.mCnt:0,sp=s.sCnt?s.sSum/s.sCnt:0;
-  const dist=s.dist||{};const rate=s.mCnt?100*((+dist['4']||0)+(+dist['5']||0))/s.mCnt:0;
+function renderSat(d){const s=d.sat||{};const m=s.mCnt?s.mSum/s.mCnt:0,sp=s.sCnt?s.sSum/s.sCnt:0;const rate=satRate(s);
   setNum($('kSat'),rate.toFixed(1));
   $('satM').childNodes[0].nodeValue=m.toFixed(2);$('satS').childNodes[0].nodeValue=sp.toFixed(2);
   setNum($('satN'),fmt(s.mCnt||0));
-  const e=CH.cSat||mk('cSat');
-  e.setOption({series:[{type:'gauge',min:0,max:100,startAngle:210,endAngle:-30,radius:'92%',center:['50%','58%'],
-    progress:{show:true,width:13,roundCap:true,itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#c8902f'},{offset:1,color:'#ffe6a8'}])}},
-    axisLine:{lineStyle:{width:13,color:[[1,'rgba(120,160,230,.16)']]}},
-    pointer:{show:false},axisTick:{show:false},splitLine:{show:false},
-    axisLabel:{distance:-2,color:'#5f739c',fontSize:10},
-    anchor:{show:false},title:{show:true,offsetCenter:[0,'24%'],color:'#92a6cf',fontSize:13,formatter:'群众满意率'},
-    detail:{valueAnimation:true,offsetCenter:[0,'-6%'],fontSize:38,fontWeight:'bolder',color:'#ffd27d',
-      formatter:v=>v.toFixed(1)+'%'},
-    data:[{value:rate}]}]});}
+  (CH.cSat||mk('cSat')).setOption(satGauge(rate,true));}
 
 let geoReady=false,CENTER={};
 function renderMap(d){if(!geoReady)return;const e=CH.cMap||mk('cMap');
@@ -235,7 +324,8 @@ function renderMap(d){if(!geoReady)return;const e=CH.cMap||mk('cMap');
       emphasis:{itemStyle:{areaColor:'#243a66'},label:{color:'#fff'}},label:{show:true,color:'#9fb3da',fontSize:11}},
     series:[{type:'map',map:'hangzhou',geoIndex:0,data:mapData},
       {type:'effectScatter',coordinateSystem:'geo',data:pts,symbolSize:v=>8+24*Math.sqrt((v[2]||0)/max),
-       rippleEffect:{brushType:'stroke',scale:3},itemStyle:{color:'#ffd27d',shadowBlur:12,shadowColor:'#f5b942'},zlevel:2}]});}
+       rippleEffect:{brushType:'stroke',scale:3},itemStyle:{color:'#ffd27d',shadowBlur:12,shadowColor:'#f5b942'},zlevel:2}]});
+  if(!e._bound){e._bound=1;e.on('click',p=>{if(p&&p.name&&DATA&&DATA.districts&&DATA.districts[p.name])openDistrict(p.name);});}}
 
 function renderTrend(d){const e=CH.cTrend||mk('cTrend');
   const a=Object.entries(d.byMonth||{}).filter(x=>x[0]).sort();
@@ -260,21 +350,8 @@ function setBadge(el,label,pct){const up=pct>=0;el.className='badge '+(up?'bg-up
   el.textContent=`${label} ${up?'▲':'▼'}${Math.abs(pct).toFixed(1)}%`;}
 
 let wordReady=false;
-function renderWord(d){const lo=$('cWord').querySelector('.loading');
-  const list=Object.entries(d.kw||{}).sort((x,y)=>y[1]-x[1]).slice(0,90);
-  if(!wordReady||!echarts.graphic){ // 词云插件没加载成功 → 退化为热词条
-    if(lo)lo.remove();const e=CH.cWord||mk('cWord');const top=list.slice(0,12).reverse();
-    e.setOption({grid:{left:8,right:46,top:6,bottom:6,containLabel:true},xAxis:{type:'value',...AX,axisLabel:{show:false}},
-      yAxis:{type:'category',data:top.map(x=>x[0]),...AX,axisLabel:{color:'#ffd27d',fontSize:13}},
-      series:[{type:'bar',data:top.map(x=>x[1]),barWidth:'60%',itemStyle:{borderRadius:[0,4,4,0],color:'#e09a2c'},
-        label:{show:true,position:'right',color:'#ffd27d',fontSize:11,formatter:p=>p.value}}]});return;}
-  if(lo)lo.remove();const e=CH.cWord||mk('cWord');
-  e.setOption({tooltip:{show:true,formatter:p=>`${p.name}: ${fmt(p.value)} 次`},series:[{type:'wordCloud',
-    shape:'circle',left:'center',top:'center',width:'96%',height:'92%',sizeRange:[14,58],rotationRange:[-30,30],
-    gridSize:6,drawOutOfBound:false,
-    textStyle:{fontWeight:'bold',color:()=>{const c=['#ffe6a8','#ffd27d','#f5b942','#e0a93a','#c8902f','#9fb3da','#7aa0d8'];
-      return c[Math.floor(Math.random()*c.length)];}},
-    emphasis:{textStyle:{color:'#fff'}},data:list.map(x=>({name:x[0],value:x[1]}))}]});}
+function renderWord(d){const lo=$('cWord').querySelector('.loading');if(lo)lo.remove();
+  (CH.cWord||mk('cWord')).setOption(kwOption(d.kw,[14,58],90));}
 
 function renderTicker(d){const rec=(d.recent||[]).slice(0,40);
   $('recMeta').textContent='共 '+fmt((d.recent||[]).length)+' 条';
@@ -305,7 +382,7 @@ function setMeta(d){const up=d.updated?d.updated.replace('T',' ').slice(0,16):'-
   $('meta').textContent=`更新于 ${up} · 下次 ${p(nd.getHours())}:${p(nd.getMinutes())}`;}
 async function refresh(){const d=await loadData();
   if(!d){$('err').style.display='block';$('err').textContent='⚠ 暂无数据：请先运行 seed 生成 data.json，或等待首次抓取。';return;}
-  $('err').style.display='none';
+  $('err').style.display='none';DATA=d;
   renderKPI(d);renderSat(d);renderStatus(d);renderDomain(d);renderTrend(d);renderWord(d);renderMap(d);renderTicker(d);
   nextAt=Date.now()+REFRESH_MS;setMeta(d);}
 
@@ -314,7 +391,12 @@ function loadScript(src){return new Promise((res,rej)=>{const s=document.createE
 async function tryEach(list){for(const u of list){try{await loadScript(u);return true;}catch(e){}}return false;}
 async function boot(){
   fit();
-  for(const u of GEO_SOURCES){try{const g=await(await fetch(u)).json();echarts.registerMap('hangzhou',g);
+  $('mClose').onclick=closeModal;
+  $('modal').onclick=e=>{if(e.target.id==='modal')closeModal();};
+  addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+  for(const u of GEO_SOURCES){try{const g=await(await fetch(u)).json();
+    g.features=g.features.filter(f=>MAIN_DISTRICTS.includes(f.properties.name));   // 只留 8 个主城区
+    echarts.registerMap('hangzhou',g);
     g.features.forEach(f=>{const c=f.properties.center||f.properties.centroid;if(c)CENTER[f.properties.name]=c;});
     geoReady=true;break;}catch(e){}}
   if(!geoReady){const lo=$('cMap').querySelector('.loading');if(lo)lo.textContent='地图加载失败';}

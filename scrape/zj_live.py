@@ -44,12 +44,9 @@ HEADERS = {
     "Connection": "keep-alive",
 }
 
-# fid -> (显示名, 层级, 杭州区县名[用于地图，省/市级为 None])
-# 层级: province / city / district
+# fid -> (显示名, 层级, 杭州区县名[用于地图，市级为 None])
+# 层级: city / district —— 仅杭州市级 + 8 个主城区（去掉省级与富阳/临安/桐庐/淳安/建德外围）
 TARGET = {
-    14:   ("浙江省",              "province", None),
-    559:  ("浙江省委书记王浩",     "province", None),
-    560:  ("浙江省长王忠林",       "province", None),
     146:  ("杭州市",              "city",     None),
     1007: ("杭州市委书记刘捷",     "city",     None),
     1008: ("杭州市市长姚高员",     "city",     None),
@@ -61,12 +58,9 @@ TARGET = {
     4177: ("余杭区委书记",        "district", "余杭区"),
     5193: ("临平区委书记",        "district", "临平区"),
     5194: ("钱塘区委书记",        "district", "钱塘区"),
-    4179: ("富阳区委书记",        "district", "富阳区"),
-    4180: ("临安区委书记",        "district", "临安区"),
-    4181: ("桐庐县委书记",        "district", "桐庐县"),
-    4182: ("淳安县委书记",        "district", "淳安县"),
-    4178: ("建德市委书记",        "district", "建德市"),
 }
+# 地图展示的 8 个主城区（前端据此过滤 geojson）
+MAIN_DISTRICTS = ["上城区", "拱墅区", "西湖区", "滨江区", "萧山区", "余杭区", "临平区", "钱塘区"]
 DISTRICT_OF = {fid: meta[2] for fid, meta in TARGET.items() if meta[2]}
 
 
@@ -181,8 +175,36 @@ def blank_store():
         "byDistrict": {},
         "sat": {"mSum": 0, "mCnt": 0, "sSum": 0, "sCnt": 0, "dist": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0}},
         "kw": {},          # 诉求热词：word -> count（写盘时裁剪到 TOP）
+        "districts": {},   # 各主城区画像：name -> {count,sat,byDomain,byStatus,kw,low}
+        "low": [],         # 全局低分留言（态度/速度 ≤2★），写盘裁剪
         "recent": [],
     }
+
+
+def blank_district():
+    return {"count": 0,
+            "sat": {"mSum": 0, "mCnt": 0, "sSum": 0, "sCnt": 0, "dist": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0}},
+            "byDomain": {}, "byStatus": {}, "kw": {}, "low": []}
+
+
+def is_low(rec):
+    """态度或速度被打了 1–2 星 = 低分留言。"""
+    gm, gs = rec.get("gManner", 0), rec.get("gSpeed", 0)
+    return 1 <= gm <= 2 or 1 <= gs <= 2
+
+
+def low_msg(rec):
+    return {"tid": rec["tid"], "title": rec["title"], "content": (rec["content"] or "")[:140],
+            "date": rec["date"], "forum": rec["forum"], "district": rec.get("district"),
+            "gm": rec.get("gManner", 0), "gs": rec.get("gSpeed", 0), "status": rec["status"]}
+
+
+def _add_sat(sat, rec):
+    if rec.get("gManner"):
+        sat["mSum"] += rec["gManner"]; sat["mCnt"] += 1
+        sat["dist"][str(rec["gManner"])] = sat["dist"].get(str(rec["gManner"]), 0) + 1
+    if rec.get("gSpeed"):
+        sat["sSum"] += rec["gSpeed"]; sat["sCnt"] += 1
 
 
 # ---- 中文分词热词（jieba 懒加载；缺失则跳过，不阻塞抓取）----
@@ -257,16 +279,24 @@ def add_records(store, records):
         f["count"] += 1
         if rec["district"]:
             _inc(store["byDistrict"], rec["district"])
-        # 满意度评分
-        sat = store["sat"]
-        if rec.get("gManner"):
-            sat["mSum"] += rec["gManner"]; sat["mCnt"] += 1
-            sat["dist"][str(rec["gManner"])] = sat["dist"].get(str(rec["gManner"]), 0) + 1
-        if rec.get("gSpeed"):
-            sat["sSum"] += rec["gSpeed"]; sat["sCnt"] += 1
-        # 诉求热词（取标题分词）
-        for w in extract_words(rec.get("title", "")):
+        # 全局满意度 + 热词 + 低分
+        _add_sat(store["sat"], rec)
+        words = extract_words(rec.get("title", ""))
+        for w in words:
             store["kw"][w] = store["kw"].get(w, 0) + 1
+        if is_low(rec):
+            store["low"].append(low_msg(rec))
+        # 各主城区画像
+        if rec.get("district"):
+            dd = store["districts"].setdefault(rec["district"], blank_district())
+            dd["count"] += 1
+            _add_sat(dd["sat"], rec)
+            _inc(dd["byDomain"], rec["domain"])
+            _inc(dd["byStatus"], rec["status"])
+            for w in words:
+                dd["kw"][w] = dd["kw"].get(w, 0) + 1
+            if is_low(rec):
+                dd["low"].append(low_msg(rec))
         store["recent"].append(rec)
         # 推进 watermark（用当前库内最大值，本批结束后生效）
         if rec["tid"] > store["watermark"].get(str(fid), 0):
@@ -295,7 +325,9 @@ def mode_seed(csv_path, out_path):
                 fid = int(row.get("forum_fid") or 0)
             except ValueError:
                 continue
-            label, level, district = TARGET.get(fid, (row.get("forum_label") or str(fid), "other", None))
+            if fid not in TARGET:
+                continue   # 只保留杭州市级 + 8 主城区
+            label, level, district = TARGET[fid]
             try:
                 tid = int(row.get("tid") or 0)
             except ValueError:
@@ -361,10 +393,31 @@ def load_store(path):
     return blank_store()
 
 
+def _topn(d, n):
+    return dict(sorted(d.items(), key=lambda x: -x[1])[:n])
+
+
+def _trim_low(lst, n):
+    seen, out = set(), []
+    for m in sorted(lst, key=lambda x: -x.get("tid", 0)):
+        if m["tid"] in seen:
+            continue
+        seen.add(m["tid"]); out.append(m)
+    return out[:n]
+
+
 def write_store(store, path):
-    # 热词裁剪到 TOP 400，避免长尾无限膨胀
+    # 全局热词 TOP400、低分留言 TOP80
     if len(store.get("kw", {})) > 400:
-        store["kw"] = dict(sorted(store["kw"].items(), key=lambda x: -x[1])[:400])
+        store["kw"] = _topn(store["kw"], 400)
+    store["low"] = _trim_low(store.get("low", []), 80)
+    # 各区：热词 TOP40、领域 TOP10、低分留言 TOP30
+    for dd in store.get("districts", {}).values():
+        if len(dd.get("kw", {})) > 40:
+            dd["kw"] = _topn(dd["kw"], 40)
+        if len(dd.get("byDomain", {})) > 10:
+            dd["byDomain"] = _topn(dd["byDomain"], 10)
+        dd["low"] = _trim_low(dd.get("low", []), 30)
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(store, f, ensure_ascii=False, separators=(",", ":"))
