@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A **real-time situational-awareness wall (一屏统揽)** for the 浙江省 / 杭州市 leadership message board
+A **real-time situational-awareness wall (一屏统揽)** for the 杭州市 leadership message board
 on 人民网 (`liuyan.people.com.cn`). It scrapes the latest citizen petitions every 10 minutes across
-**19 forums** (province board + 3 provincial leaders + Hangzhou city + 2 city leaders + 13 Hangzhou
-districts/counties), accumulates them, and renders a deep-space / amber-gold sci-fi dashboard that
-auto-refreshes. Fully free, no third-party accounts.
+**11 forums** (Hangzhou city board + 市委书记 + 市长 + the **8 main urban districts** 上城/拱墅/西湖/
+滨江/萧山/余杭/临平/钱塘), accumulates them, and renders a deep-space / amber-gold sci-fi dashboard that
+auto-refreshes. Fully free, no third-party accounts. (Earlier versions also covered 浙江省 boards and the
+5 outer districts 富阳/临安/桐庐/淳安/建德 — both were intentionally dropped to focus on the urban core.)
 
 There is no framework and no build step: a Python data pipeline + a single static HTML dashboard +
 one Vercel serverless read-function + a GitHub Actions cron.
@@ -53,9 +54,13 @@ install ad hoc, it's gitignored).
 
 ## `scrape/zj_live.py` — things that matter when editing
 
-- **`TARGET` dict** (`fid → (label, level, district)`) is the authoritative scope. `level` is
-  province/city/district; `district` (Hangzhou only) is the geojson region name used by the map.
-  Change the dashboard's coverage here.
+- **`TARGET` dict** (`fid → (label, level, district)`) is the authoritative scope (now 11: city +
+  8 districts). `level` is city/district; `district` is the geojson region name used by the map.
+  `MAIN_DISTRICTS` lists the 8 the frontend filters the geojson to. Change coverage here, then re-seed
+  AND reset the data branch (delete it + re-run the Action) so the old scope doesn't linger.
+- **Per-district profiles** (`districts{name:{count,sat,byDomain,byStatus,kw,low}}`) power the click-to-
+  compare modal; **low-score messages** (`low[]` globally + per district, items rated ≤2★ on manner or
+  speed) power the 督办重点 lists. Both built in `add_records`, pruned in `write_store`.
 - **Anti-bot is real.** Rapid sequential requests to all 19 forums trigger `HTTP 403` (WAF), even from
   a China IP. Mitigations already in place: a `requests.Session` + `warmup()` GET to grab cookies
   before POSTing, `PAGES_PER_FORUM = 1` (newest page only), `delay 1.5s + jitter`, and 403/429 →
@@ -73,8 +78,9 @@ install ad hoc, it's gitignored).
   `jieba` is a real dependency now (requirements.txt + workflow `pip install`).
 - **data.json schema**: `{updated, source, watermark{fid:tid}, totals{all,replied}, byMonth, byDomain,
   byStatus, byType, byForum{label:{count,fid,level}}, byDistrict{name:n}, sat{mSum,mCnt,sSum,sCnt,dist},
-  kw{word:count}, recent[≤600 newest]}`. The frontend reads exactly these keys — keep in sync with
-  `index.html`'s render functions. (`byType` is still computed but its donut panel was removed.)
+  kw{word:count}, districts{name:{count,sat,byDomain,byStatus,kw,low}}, low[≤80], recent[≤600 newest]}`.
+  The frontend reads exactly these keys — keep in sync with `index.html`'s render functions.
+  (`byType` is still computed but its donut panel was removed.)
 
 ## `index.html` — the dashboard
 
@@ -83,9 +89,14 @@ install ad hoc, it's gitignored).
   only a fallback) — this fixed a "地图加载失败（网络受限）" where the viewer's network blocked datav.
   District centroids come from `feature.properties.center`. Wordcloud degrades to a top-keywords bar if
   the plugin fails to load.
-- Panels: KPI strip (今日/本月新增, 办结率, 群众满意率), 群众满意度 gauge, 办理状态, 杭州区县热力地图,
+- Panels: KPI strip (今日/本月新增, 办结率, 群众满意率), 群众满意度 gauge, 办理状态, 杭州主城区热力地图,
   月度趋势(+环比/同比 badges), 诉求热词云, 最新留言 ticker, 诉求领域 TOP10. (Removed: 诉求类型 donut,
   版块热度排行 — redundant with domain/map.)
+- **Click-to-compare modal**: clicking a district on the map calls `openDistrict(name)` → a scaled
+  in-`#stage` overlay showing that district's satisfaction gauge, 态度/速度, status, domain TOP, keyword
+  cloud, and 低分留言督办 list, with a 较全市 (vs city-average) delta badge. Chart options come from the
+  shared builders `satGauge/statusDonut/domainBar/kwOption` (used by both the main panels and the modal);
+  `MCH`/`mmk` manage the modal's own ECharts instances. Close via ✕ / backdrop click / Esc.
 - **Fixed 1920×1080 design canvas**, scaled to fit any screen via `transform: scale()` in `fit()`.
   Layout is a 3-column CSS grid; panels size with `flex`.
 - Data source order is `['/api/data', './data.json']` (`DATA_SOURCES`); refresh every `REFRESH_MS`
