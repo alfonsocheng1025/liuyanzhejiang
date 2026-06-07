@@ -166,8 +166,7 @@
         <div class="kpi"><div class="ico">✅</div><div class="v" id="kRate">--<small>%</small></div><div class="l">办结率</div></div>
         <div class="kpi alt"><div class="ico">⭐</div><div class="v" id="kSat">--<small>%</small></div><div class="l">群众满意率</div></div>
       </div>
-      <div class="panel" style="flex:.8"><div class="pt"><i></i><b>各区满意率排行</b><span class="sp">RANK · 全8区</span></div><div class="chart" id="cRank"></div></div>
-      <div class="panel" style="flex:1.05"><div class="pt"><i></i><b>群众满意度</b><span class="sp" id="satTag">SATISFACTION · 1–5★</span></div>
+      <div class="panel" style="flex:1.55"><div class="pt"><i></i><b>群众满意度</b><span class="sp" id="satTag">SATISFACTION · 1–5★</span></div>
         <div class="chart" id="cSat"></div>
         <div class="satdist" id="satDist"></div>
         <div class="satfoot">
@@ -186,18 +185,16 @@
     <div class="col">
       <div class="panel" style="flex:1.75"><div class="pt"><i></i><b>杭州主城区留言热力</b><span class="sp">🔄 自动轮播 · 点击展开</span></div>
         <div class="chart" id="cMap"><div class="loading">地图加载中…</div></div></div>
-      <div class="panel" style="flex:1"><div class="pt"><i></i><b>月度留言趋势（含历史）</b>
-        <span class="sp"><span class="badge" id="momBadge">环比 --</span><span class="badge" id="yoyBadge">同比 --</span></span></div>
-        <div class="chart" id="cTrend"></div></div>
+      <div class="panel" style="flex:.92"><div class="pt"><i></i><b>各区满意率排行</b><span class="sp">RANK · 全8区(一眼横比)</span></div><div class="chart" id="cRank"></div></div>
     </div>
 
     <!-- 右列 -->
     <div class="col">
-      <div class="panel" style="flex:1.05"><div class="pt"><i></i><b>诉求热词 · 民意热点</b><span class="sp" id="wordTag">HOT TOPICS</span></div>
+      <div class="panel" style="flex:1.15"><div class="pt"><i></i><b>区内街道分布</b><span class="sp" id="streetTag">STREET</span></div><div class="chart" id="cStreetMain"></div></div>
+      <div class="panel" style="flex:1.1"><div class="pt"><i></i><b>诉求热词 · 民意热点</b><span class="sp" id="wordTag">HOT TOPICS</span></div>
         <div class="chart" id="cWord"><div class="loading">热词加载中…</div></div></div>
-      <div class="panel" style="flex:1.4"><div class="pt"><i></i><b>最新留言</b><span class="sp" id="recMeta">LATEST</span></div>
-        <div class="ticker"><div class="tk-track" id="tkTrack"></div></div></div>
-      <div class="panel" style="flex:1.15"><div class="pt"><i></i><b>诉求领域分布</b><span class="sp" id="domainTag">TOP 10 DOMAIN</span></div><div class="chart" id="cDomain"></div></div>
+      <div class="panel" style="flex:1.1"><div class="pt"><i></i><b>诉求领域分布</b><span class="sp" id="domainTag">TOP 10 DOMAIN</span></div><div class="chart" id="cDomain"></div></div>
+      <div class="panel" style="flex:.6"><div class="pt"><i></i><b>月度趋势</b><span class="sp"><span class="badge" id="momBadge">环比 --</span><span class="badge" id="yoyBadge">同比 --</span></span></div><div class="chart" id="cTrend"></div></div>
     </div>
   </div>
 
@@ -394,7 +391,15 @@ function applyScope(o,label){
   (CH.cStatus||mk('cStatus')).setOption(donutMini(o.byStatus,k=>STC[k]||'#7aa0d8'));
   (CH.cType||mk('cType')).setOption(donutMini(o.byType,null,TYPEPAL));
   setTag('structTag',label,'STRUCTURE');
-  renderRank(DATA,o.districts?null:label);}   // 排行常显全8区，高亮当前轮播区
+  renderRank(DATA,o.districts?null:label);
+  // 区内街道分布（区=该区；全市=各区合并），标注正文识别覆盖率
+  const isAll=!!o.districts;
+  const bs=isAll?mergeStreets():(o.byStreet||{});
+  const cnt=isAll?Object.values(DATA.districts||{}).reduce((a,d)=>a+(d.count||0),0):(o.count||0);
+  const mt=Object.values(bs).reduce((a,b)=>a+b,0),cov=cnt?Math.round(100*mt/cnt):0;
+  (CH.cStreetMain||mk('cStreetMain')).setOption(domainBar(bs,9));
+  $('streetTag').innerHTML=(isAll?'全市 ':'▶ <span style="color:#ffd27d;font-weight:700">'+label+'</span> ')+'<span style="color:var(--txt3)">正文识别·覆盖'+cov+'%</span>';}
+function mergeStreets(){const m={};for(const dd of Object.values((DATA&&DATA.districts)||{}))for(const k in (dd.byStreet||{}))m[k]=(m[k]||0)+dd.byStreet[k];return m;}   // 排行常显全8区，高亮当前轮播区
 function spotlight(name){const dd=DATA&&DATA.districts&&DATA.districts[name];if(dd)applyScope(dd,name);}
 function showAll(){if(DATA)applyScope(DATA,'全市');}
 // 各区满意率横向排行（一眼比全8区，高亮当前轮播区）
@@ -445,11 +450,10 @@ function renderTrend(d){const e=CH.cTrend||mk('cTrend');
   const a=Object.entries(d.byMonth||{}).filter(x=>x[0]).sort();
   const months=a.map(x=>x[0]),vals=a.map(x=>x[1]);
   // 环比/同比（基于最近一个月）
-  const n=vals.length;
-  if(n>=2){const cur=vals[n-1],prev=vals[n-2];const mom=prev?(cur-prev)/prev*100:0;
-    setBadge($('momBadge'),'环比',mom);}
-  if(n>=13){const cur=vals[n-1],yoyBase=vals[n-13];const yoy=yoyBase?(vals[n-1]-yoyBase)/yoyBase*100:0;
-    setBadge($('yoyBadge'),'同比',yoy);}
+  const t=new Date();const curM=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0');
+  let li=months.length-1;if(months[li]===curM)li--;   // 跳过当前未过完的月，用最近完整月
+  if(li>=1){const mom=vals[li-1]?(vals[li]-vals[li-1])/vals[li-1]*100:0;setBadge($('momBadge'),'环比',mom);}
+  if(li>=12){const yb=vals[li-12];const yoy=yb?(vals[li]-yb)/yb*100:0;setBadge($('yoyBadge'),'同比',yoy);}
   const z=Math.max(0,100-Math.min(100,6000/Math.max(1,months.length)));
   e.setOption({grid:{left:8,right:18,top:14,bottom:26,containLabel:true},tooltip:{trigger:'axis'},
     dataZoom:[{type:'inside',start:z,end:100},{type:'slider',height:14,bottom:2,start:z,end:100,
@@ -465,14 +469,6 @@ function setBadge(el,label,pct){const up=pct>=0;el.className='badge '+(up?'bg-up
 
 let wordReady=false;
 
-function renderTicker(d){const rec=(d.recent||[]).slice(0,40);
-  $('recMeta').textContent='共 '+fmt((d.recent||[]).length)+' 条';
-  const item=m=>{const cls=STG[m.status]||'st-doing';
-    return `<div class="msg"><div class="top"><span class="tag ${cls}">${m.status||''}</span>
-      <span class="fo">${m.forum||''}</span><span class="dt">${m.date||''}</span></div>
-      <div class="ti">${esc(m.title||'(无标题)')}</div>${m.content?`<div class="co">${esc(m.content)}</div>`:''}</div>`;};
-  const html=rec.map(item).join('');const tk=$('tkTrack');tk.innerHTML=html+html;
-  tk.style.animationDuration=Math.max(20,rec.length*3.2)+'s';}
 function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 
 function ym(date){return date?date.slice(0,7):'';}
@@ -496,7 +492,7 @@ function setMeta(d){const up=d.updated?d.updated.replace('T',' ').slice(0,16):'-
 async function refresh(){const d=await loadData();
   if(!d){$('err').style.display='block';$('err').textContent='⚠ 暂无数据：请先运行 seed 生成 data.json，或等待首次抓取。';return;}
   $('err').style.display='none';DATA=d;
-  renderKPI(d);renderTrend(d);renderTicker(d);renderLowMar(d);showAll();renderMap(d);
+  renderKPI(d);renderTrend(d);renderLowMar(d);showAll();renderMap(d);
   nextAt=Date.now()+REFRESH_MS;setMeta(d);}
 
 /* ============ 启动 ============ */
