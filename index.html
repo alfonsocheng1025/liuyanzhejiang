@@ -7,8 +7,7 @@
 <style>
   :root{
     --bg0:#05070f; --bg1:#0a1020; --bg2:#0e1730;
-    --panel:rgba(16,26,52,.55); --panel2:rgba(20,32,64,.35);
-    --line:rgba(245,185,66,.22); --line2:rgba(120,160,230,.14);
+    --panel:rgba(16,26,52,.55); --line:rgba(245,185,66,.22); --line2:rgba(120,160,230,.14);
     --gold:#f5b942; --gold-b:#ffd27d; --gold-d:#c8902f;
     --txt:#e9eefc; --txt2:#92a6cf; --txt3:#5f739c;
     --red:#ff6b5b; --blue:#4aa3ff; --green:#3fd29a;
@@ -17,35 +16,28 @@
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{width:100%;height:100%;background:var(--bg0);overflow:hidden;
     font-family:"PingFang SC","Microsoft YaHei","Segoe UI",-apple-system,sans-serif;color:var(--txt)}
-  /* 1920x1080 设计画布，整体缩放铺满任意大屏 */
   #stage{position:fixed;left:50%;top:50%;width:1920px;height:1080px;transform-origin:center center;
     background:
       radial-gradient(1200px 700px at 70% -10%, rgba(60,90,170,.18), transparent 60%),
       radial-gradient(900px 600px at 10% 110%, rgba(245,185,66,.10), transparent 60%),
-      linear-gradient(160deg,var(--bg0),var(--bg1) 55%,var(--bg2));
-    overflow:hidden}
+      linear-gradient(160deg,var(--bg0),var(--bg1) 55%,var(--bg2));overflow:hidden}
   #stage::before{content:"";position:absolute;inset:0;pointer-events:none;
     background-image:linear-gradient(rgba(120,160,230,.05) 1px,transparent 1px),
-      linear-gradient(90deg,rgba(120,160,230,.05) 1px,transparent 1px);
-    background-size:48px 48px;mask-image:radial-gradient(circle at 50% 45%,#000 55%,transparent 100%)}
+      linear-gradient(90deg,rgba(120,160,230,.05) 1px,transparent 1px);background-size:48px 48px;
+    mask-image:radial-gradient(circle at 50% 45%,#000 55%,transparent 100%)}
 
-  /* 顶栏 */
   header{position:relative;height:84px;display:flex;align-items:center;justify-content:space-between;
-    padding:0 34px;border-bottom:1px solid var(--line);
-    background:linear-gradient(180deg,rgba(245,185,66,.08),transparent)}
+    padding:0 34px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(245,185,66,.08),transparent)}
   header::after{content:"";position:absolute;left:0;bottom:-1px;height:1px;width:100%;
     background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.7}
   .brand{display:flex;align-items:center;gap:18px}
-  .brand .mk{width:46px;height:46px;border:2px solid var(--gold);border-radius:9px;display:flex;
-    align-items:center;justify-content:center;font-size:22px;color:var(--gold);box-shadow:var(--glow);
-    background:radial-gradient(circle,rgba(245,185,66,.18),transparent)}
-  .brand h1{font-size:30px;font-weight:800;letter-spacing:3px;
-    background:linear-gradient(180deg,#fff,var(--gold-b) 60%,var(--gold));
+  .brand .mk{width:46px;height:46px;border:2px solid var(--gold);border-radius:9px;display:flex;align-items:center;
+    justify-content:center;font-size:22px;color:var(--gold);box-shadow:var(--glow);background:radial-gradient(circle,rgba(245,185,66,.18),transparent)}
+  .brand h1{font-size:30px;font-weight:800;letter-spacing:3px;background:linear-gradient(180deg,#fff,var(--gold-b) 60%,var(--gold));
     -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 26px rgba(245,185,66,.25)}
   .brand .sub{font-size:13px;color:var(--txt2);letter-spacing:2px;margin-top:3px}
   .hcenter{text-align:center}
-  .hcenter .clock{font-size:34px;font-weight:700;letter-spacing:3px;font-variant-numeric:tabular-nums;
-    color:var(--gold-b);text-shadow:var(--glow)}
+  .hcenter .clock{font-size:34px;font-weight:700;letter-spacing:3px;font-variant-numeric:tabular-nums;color:var(--gold-b);text-shadow:var(--glow)}
   .hcenter .cdate{font-size:13px;color:var(--txt2);letter-spacing:4px;margin-top:2px}
   .hright{display:flex;align-items:center;gap:26px}
   .stat{text-align:right}
@@ -55,75 +47,63 @@
   .dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:blink 1.4s infinite}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
 
-  /* 主体三列 */
-  #main{height:996px;display:grid;grid-template-columns:432px 1fr 432px;gap:14px;padding:14px 16px}
+  #main{height:996px;display:grid;grid-template-columns:436px 1fr 436px;gap:14px;padding:14px 16px}
   .col{display:flex;flex-direction:column;gap:14px;min-height:0}
-  .panel{position:relative;background:var(--panel);border:1px solid var(--line2);border-radius:10px;
-    padding:12px 14px 8px;min-height:0;display:flex;flex-direction:column;
-    box-shadow:inset 0 0 40px rgba(10,18,40,.5),0 6px 24px rgba(0,0,0,.35);backdrop-filter:blur(3px)}
-  /* 四角科技角标 */
+  .panel{position:relative;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:12px 14px 8px;
+    min-height:0;display:flex;flex-direction:column;box-shadow:inset 0 0 40px rgba(10,18,40,.5),0 6px 24px rgba(0,0,0,.35);backdrop-filter:blur(3px)}
   .panel::before,.panel::after{content:"";position:absolute;width:14px;height:14px;border:2px solid var(--gold);opacity:.55}
   .panel::before{left:-1px;top:-1px;border-right:none;border-bottom:none;border-radius:4px 0 0 0}
   .panel::after{right:-1px;bottom:-1px;border-left:none;border-top:none;border-radius:0 0 4px 0}
   .pt{display:flex;align-items:center;gap:9px;margin-bottom:6px;flex:0 0 auto}
   .pt b{font-size:16px;font-weight:700;letter-spacing:2px;color:#fff}
   .pt i{width:4px;height:15px;background:linear-gradient(var(--gold-b),var(--gold-d));border-radius:2px;box-shadow:var(--glow)}
-  .pt span{margin-left:auto;font-size:11px;color:var(--txt3);letter-spacing:1px}
+  .pt .sp{margin-left:auto;font-size:11px;color:var(--txt3);letter-spacing:1px;display:flex;gap:8px;align-items:center}
+  .badge{font-size:11px;padding:1px 7px;border-radius:10px;font-weight:700;font-variant-numeric:tabular-nums}
+  .bg-up{background:rgba(255,107,91,.16);color:#ff9b8f} .bg-dn{background:rgba(63,210,154,.16);color:#7fe6c1}
   .chart{flex:1 1 auto;min-height:0;width:100%}
 
-  /* KPI */
   .kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:0 0 auto}
   .kpi{position:relative;background:linear-gradient(150deg,rgba(245,185,66,.10),rgba(20,32,64,.3));
-    border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:hidden}
-  .kpi .ico{position:absolute;right:10px;top:8px;font-size:30px;opacity:.16}
-  .kpi .v{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--gold-b);
-    text-shadow:var(--glow);line-height:1.1}
-  .kpi .v small{font-size:16px;color:var(--txt2);font-weight:600;margin-left:2px}
-  .kpi .l{font-size:13px;color:var(--txt2);letter-spacing:1px;margin-top:5px}
+    border:1px solid var(--line);border-radius:10px;padding:13px 15px;overflow:hidden}
+  .kpi .ico{position:absolute;right:9px;top:7px;font-size:28px;opacity:.16}
+  .kpi .v{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--gold-b);text-shadow:var(--glow);line-height:1.1}
+  .kpi .v small{font-size:15px;color:var(--txt2);font-weight:600;margin-left:2px}
+  .kpi .l{font-size:13px;color:var(--txt2);letter-spacing:1px;margin-top:4px}
   .kpi.alt .v{color:#fff}
 
-  /* 最新留言滚动 */
+  .satfoot{flex:0 0 auto;display:flex;gap:8px;padding:4px 2px 6px}
+  .chip{flex:1;text-align:center;background:rgba(12,20,42,.5);border:1px solid var(--line2);border-radius:7px;padding:6px 2px}
+  .chip .cv{font-size:19px;font-weight:800;color:var(--gold-b);font-variant-numeric:tabular-nums}
+  .chip .cv .s{font-size:12px;color:var(--gold)} .chip .cl{font-size:11px;color:var(--txt2);margin-top:1px}
+
   .ticker{flex:1 1 auto;overflow:hidden;position:relative;mask-image:linear-gradient(180deg,transparent,#000 6%,#000 94%,transparent)}
   .tk-track{display:flex;flex-direction:column;gap:9px;animation:roll linear infinite}
   .ticker:hover .tk-track{animation-play-state:paused}
   @keyframes roll{from{transform:translateY(0)}to{transform:translateY(-50%)}}
-  .msg{border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:7px;padding:8px 11px;
-    background:rgba(12,20,42,.5)}
+  .msg{border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:7px;padding:8px 11px;background:rgba(12,20,42,.5)}
   .msg .top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
   .msg .tag{font-size:11px;padding:1px 7px;border-radius:4px;color:#0a0e18;font-weight:700;background:var(--gold)}
   .msg .fo{font-size:12px;color:var(--gold-b);font-weight:600}
   .msg .dt{margin-left:auto;font-size:11px;color:var(--txt3);font-variant-numeric:tabular-nums}
-  .msg .ti{font-size:14px;color:#eef3ff;font-weight:600;line-height:1.35;
-    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
-  .msg .co{font-size:12px;color:var(--txt2);line-height:1.4;margin-top:3px;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .msg .ti{font-size:14px;color:#eef3ff;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .msg .co{font-size:12px;color:var(--txt2);line-height:1.4;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .st-done{background:var(--gold)} .st-doing{background:var(--blue);color:#fff} .st-wait{background:var(--red);color:#fff}
 
-  #err{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--txt2);font-size:18px;
-    text-align:center;display:none;z-index:9}
+  #err{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--txt2);font-size:18px;text-align:center;display:none;z-index:9}
   .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--txt3);font-size:13px}
 </style>
 </head>
 <body>
 <div id="stage">
   <header>
-    <div class="brand">
-      <div class="mk">浙</div>
-      <div>
-        <h1>浙江省 · 杭州市领导留言板 实时统揽</h1>
-        <div class="sub">ZHEJIANG · HANGZHOU LEADERSHIP MESSAGE BOARD — REAL-TIME COMMAND PANEL</div>
-      </div>
-    </div>
-    <div class="hcenter">
-      <div class="clock" id="clock">--:--:--</div>
-      <div class="cdate" id="cdate">----年--月--日 星期-</div>
-    </div>
+    <div class="brand"><div class="mk">浙</div>
+      <div><h1>浙江省 · 杭州市领导留言板 实时统揽</h1>
+        <div class="sub">ZHEJIANG · HANGZHOU LEADERSHIP MESSAGE BOARD — REAL-TIME COMMAND PANEL</div></div></div>
+    <div class="hcenter"><div class="clock" id="clock">--:--:--</div><div class="cdate" id="cdate">----年--月--日 星期-</div></div>
     <div class="hright">
       <div class="stat"><div class="v" id="hTotal">--</div><div class="l">累计留言 TOTAL</div></div>
-      <div style="text-align:right">
-        <div class="live"><span class="dot"></span>LIVE · 每10分钟刷新</div>
-        <div class="l" style="font-size:12px;color:var(--txt3);margin-top:6px" id="meta">更新于 -- · 下次 --:--</div>
-      </div>
+      <div style="text-align:right"><div class="live"><span class="dot"></span>LIVE · 每10分钟刷新</div>
+        <div class="l" style="font-size:12px;color:var(--txt3);margin-top:6px" id="meta">更新于 -- · 下次 --:--</div></div>
     </div>
   </header>
 
@@ -131,29 +111,37 @@
     <!-- 左列 -->
     <div class="col">
       <div class="kpis">
-        <div class="kpi"><div class="ico">📨</div><div class="v" id="kAll">--</div><div class="l">累计留言</div></div>
-        <div class="kpi alt"><div class="ico">📈</div><div class="v" id="kToday">--</div><div class="l">今日新增</div></div>
+        <div class="kpi"><div class="ico">📈</div><div class="v" id="kToday">--</div><div class="l">今日新增</div></div>
+        <div class="kpi alt"><div class="ico">🗓️</div><div class="v" id="kMonth">--</div><div class="l">本月新增</div></div>
         <div class="kpi"><div class="ico">✅</div><div class="v" id="kRate">--<small>%</small></div><div class="l">办结率</div></div>
-        <div class="kpi alt"><div class="ico">⏳</div><div class="v" id="kWait">--</div><div class="l">累计待回复</div></div>
+        <div class="kpi alt"><div class="ico">⭐</div><div class="v" id="kSat">--<small>%</small></div><div class="l">群众满意率</div></div>
       </div>
-      <div class="panel" style="flex:1.1"><div class="pt"><i></i><b>诉求领域分布</b><span>TOP 10 DOMAIN</span></div><div class="chart" id="cDomain"></div></div>
-      <div class="panel" style="flex:.9"><div class="pt"><i></i><b>诉求类型</b><span>BY TYPE</span></div><div class="chart" id="cType"></div></div>
+      <div class="panel" style="flex:1.05"><div class="pt"><i></i><b>群众满意度</b><span class="sp">SATISFACTION · 1–5★</span></div>
+        <div class="chart" id="cSat"></div>
+        <div class="satfoot">
+          <div class="chip"><div class="cv" id="satM">--<span class="s">★</span></div><div class="cl">态度评价</div></div>
+          <div class="chip"><div class="cv" id="satS">--<span class="s">★</span></div><div class="cl">速度评价</div></div>
+          <div class="chip"><div class="cv" id="satN">--</div><div class="cl">参评量</div></div>
+        </div></div>
+      <div class="panel" style="flex:.95"><div class="pt"><i></i><b>办理状态</b><span class="sp">STATUS</span></div><div class="chart" id="cStatus"></div></div>
     </div>
 
     <!-- 中列 -->
     <div class="col">
-      <div class="panel" style="flex:1.7"><div class="pt"><i></i><b>杭州市各区县留言热力</b><span>HANGZHOU DISTRICTS</span></div>
+      <div class="panel" style="flex:1.75"><div class="pt"><i></i><b>杭州市各区县留言热力</b><span class="sp">HANGZHOU DISTRICTS</span></div>
         <div class="chart" id="cMap"><div class="loading">地图加载中…</div></div></div>
-      <div class="panel" style="flex:1"><div class="pt"><i></i><b>月度留言趋势（含历史）</b><span>MONTHLY TREND</span></div>
+      <div class="panel" style="flex:1"><div class="pt"><i></i><b>月度留言趋势（含历史）</b>
+        <span class="sp"><span class="badge" id="momBadge">环比 --</span><span class="badge" id="yoyBadge">同比 --</span></span></div>
         <div class="chart" id="cTrend"></div></div>
     </div>
 
     <!-- 右列 -->
     <div class="col">
-      <div class="panel" style="flex:1.5"><div class="pt"><i></i><b>最新留言</b><span id="recMeta">LATEST</span></div>
+      <div class="panel" style="flex:1.05"><div class="pt"><i></i><b>诉求热词 · 民意热点</b><span class="sp">HOT TOPICS</span></div>
+        <div class="chart" id="cWord"><div class="loading">热词加载中…</div></div></div>
+      <div class="panel" style="flex:1.4"><div class="pt"><i></i><b>最新留言</b><span class="sp" id="recMeta">LATEST</span></div>
         <div class="ticker"><div class="tk-track" id="tkTrack"></div></div></div>
-      <div class="panel" style="flex:1"><div class="pt"><i></i><b>版块热度排行</b><span>TOP FORUMS</span></div><div class="chart" id="cRank"></div></div>
-      <div class="panel" style="flex:.8"><div class="pt"><i></i><b>办理状态</b><span>STATUS</span></div><div class="chart" id="cStatus"></div></div>
+      <div class="panel" style="flex:1.15"><div class="pt"><i></i><b>诉求领域分布</b><span class="sp">TOP 10 DOMAIN</span></div><div class="chart" id="cDomain"></div></div>
     </div>
   </div>
 </div>
@@ -161,11 +149,13 @@
 
 <script>
 /* ============ 配置 ============ */
-const REFRESH_MS = 10 * 60 * 1000;                 // 10 分钟自动刷新
-const DATA_SOURCES = ['/api/data', './data.json']; // 线上走 Vercel 接口，本地回落到同目录文件
-const HZ_GEOJSON = 'https://geo.datav.aliyun.com/areas_v3/bound/330100_full.json';
+const REFRESH_MS = 10 * 60 * 1000;
+const DATA_SOURCES = ['/api/data', './data.json'];
+const GEO_SOURCES = ['./hangzhou.geo.json', 'https://geo.datav.aliyun.com/areas_v3/bound/330100_full.json'];
 const ECHARTS_CDN = ['https://cdn.staticfile.net/echarts/5.5.1/echarts.min.js',
                      'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js'];
+const WORDCLOUD_CDN = ['https://cdn.staticfile.net/echarts-wordcloud/2.1.0/echarts-wordcloud.min.js',
+                       'https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.1.0/dist/echarts-wordcloud.min.js'];
 
 /* ============ 自适应缩放 ============ */
 function fit(){const s=Math.min(innerWidth/1920,innerHeight/1080);
@@ -182,10 +172,12 @@ setInterval(tick,1000);tick();
 /* ============ 工具 ============ */
 const $=id=>document.getElementById(id);
 const fmt=n=>(n||0).toLocaleString('en-US');
-function animVal(el,to,suffix=''){const from=+(el.dataset.v||0);if(from===to){el.childNodes[0].nodeValue=fmt(to);return;}
-  el.dataset.v=to;const t0=performance.now(),dur=900;
+function animVal(el,to){const from=+(el.dataset.v||0);el.dataset.v=to;
+  if(from===to){el.childNodes[0].nodeValue=fmt(to);return;}
+  const t0=performance.now(),dur=900;
   (function step(t){const k=Math.min(1,(t-t0)/dur);const v=Math.round(from+(to-from)*(1-Math.pow(1-k,3)));
     el.childNodes[0].nodeValue=fmt(v);if(k<1)requestAnimationFrame(step);})(performance.now());}
+function setNum(el,val){el.childNodes[0].nodeValue=val;el.dataset.v=val;}
 const STG={'待回复':'st-wait','处理中':'st-doing','办理中':'st-doing','已办理':'st-done','已回复':'st-done','已解决':'st-done'};
 const STC={'待回复':'#ff6b5b','处理中':'#4aa3ff','办理中':'#4aa3ff','已办理':'#f5b942','已回复':'#ffd27d','已解决':'#3fd29a'};
 
@@ -200,135 +192,137 @@ function mk(id){const c=echarts.init($(id),null,{renderer:'canvas'});CH[id]=c;re
 function renderDomain(d){const e=CH.cDomain||mk('cDomain');
   const a=Object.entries(d.byDomain||{}).sort((x,y)=>y[1]-x[1]).slice(0,10).reverse();
   e.setOption({grid:{left:8,right:54,top:8,bottom:6,containLabel:true},
-    xAxis:{type:'value',...AX,splitLine:{lineStyle:{color:'rgba(120,160,230,.08)'}}},
-    yAxis:{type:'category',data:a.map(x=>x[0]),...AX,axisLabel:{color:'#cdd8f0',fontSize:13}},
+    xAxis:{type:'value',...AX},yAxis:{type:'category',data:a.map(x=>x[0]),...AX,axisLabel:{color:'#cdd8f0',fontSize:13}},
     tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
     series:[{type:'bar',data:a.map(x=>x[1]),barWidth:'58%',
       itemStyle:{borderRadius:[0,5,5,0],color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#9a6b1e'},{offset:1,color:'#ffd27d'}])},
       label:{show:true,position:'right',color:'#ffd27d',fontSize:12,fontWeight:600,formatter:p=>fmt(p.value)}}]});}
 
-function renderType(d){const e=CH.cType||mk('cType');
-  const a=Object.entries(d.byType||{}).sort((x,y)=>y[1]-x[1]).slice(0,6);
-  e.setOption({tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},
-    legend:{type:'scroll',orient:'vertical',right:6,top:'center',textStyle:{color:'#92a6cf',fontSize:12},itemWidth:10,itemHeight:10},
-    color:GOLD.concat(['#7aa0d8','#5f739c']),
-    series:[{type:'pie',radius:['42%','70%'],center:['38%','52%'],avoidLabelOverlap:true,
-      itemStyle:{borderColor:'#0a1020',borderWidth:2},
-      label:{show:false},labelLine:{show:false},
-      data:a.map(x=>({name:x[0],value:x[1]}))}]});}
-
 function renderStatus(d){const e=CH.cStatus||mk('cStatus');
   const a=Object.entries(d.byStatus||{}).sort((x,y)=>y[1]-x[1]);
   e.setOption({tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},
     legend:{orient:'vertical',right:8,top:'center',textStyle:{color:'#cdd8f0',fontSize:13},itemWidth:11,itemHeight:11},
-    series:[{type:'pie',radius:['52%','74%'],center:['36%','52%'],
-      itemStyle:{borderColor:'#0a1020',borderWidth:2},label:{show:false},labelLine:{show:false},
+    series:[{type:'pie',radius:['52%','74%'],center:['34%','52%'],itemStyle:{borderColor:'#0a1020',borderWidth:2},
+      label:{show:false},labelLine:{show:false},
       data:a.map(x=>({name:x[0],value:x[1],itemStyle:{color:STC[x[0]]||'#7aa0d8'}}))}]});}
 
-function renderRank(d){const e=CH.cRank||mk('cRank');
-  const a=Object.entries(d.byForum||{}).map(([k,v])=>[k,v.count]).sort((x,y)=>y[1]-x[1]).slice(0,9).reverse();
-  e.setOption({grid:{left:8,right:50,top:6,bottom:6,containLabel:true},
-    xAxis:{type:'value',...AX},
-    yAxis:{type:'category',data:a.map(x=>x[0]),...AX,axisLabel:{color:'#cdd8f0',fontSize:12}},
-    tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
-    series:[{type:'bar',data:a.map(x=>x[1]),barWidth:'55%',
-      itemStyle:{borderRadius:[0,5,5,0],color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#2a4a8a'},{offset:1,color:'#4aa3ff'}])},
-      label:{show:true,position:'right',color:'#9fc4ff',fontSize:11,formatter:p=>fmt(p.value)}}]});}
+function renderSat(d){const s=d.sat||{};const m=s.mCnt?s.mSum/s.mCnt:0,sp=s.sCnt?s.sSum/s.sCnt:0;
+  const dist=s.dist||{};const rate=s.mCnt?100*((+dist['4']||0)+(+dist['5']||0))/s.mCnt:0;
+  setNum($('kSat'),rate.toFixed(1));
+  $('satM').childNodes[0].nodeValue=m.toFixed(2);$('satS').childNodes[0].nodeValue=sp.toFixed(2);
+  setNum($('satN'),fmt(s.mCnt||0));
+  const e=CH.cSat||mk('cSat');
+  e.setOption({series:[{type:'gauge',min:0,max:100,startAngle:210,endAngle:-30,radius:'92%',center:['50%','58%'],
+    progress:{show:true,width:13,roundCap:true,itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#c8902f'},{offset:1,color:'#ffe6a8'}])}},
+    axisLine:{lineStyle:{width:13,color:[[1,'rgba(120,160,230,.16)']]}},
+    pointer:{show:false},axisTick:{show:false},splitLine:{show:false},
+    axisLabel:{distance:-2,color:'#5f739c',fontSize:10},
+    anchor:{show:false},title:{show:true,offsetCenter:[0,'24%'],color:'#92a6cf',fontSize:13,formatter:'群众满意率'},
+    detail:{valueAnimation:true,offsetCenter:[0,'-6%'],fontSize:38,fontWeight:'bolder',color:'#ffd27d',
+      formatter:v=>v.toFixed(1)+'%'},
+    data:[{value:rate}]}]});}
+
+let geoReady=false,CENTER={};
+function renderMap(d){if(!geoReady)return;const e=CH.cMap||mk('cMap');
+  const mapData=Object.entries(d.byDistrict||{}).map(([k,v])=>({name:k,value:v}));
+  const max=Math.max(1,...mapData.map(x=>x.value));
+  const pts=mapData.map(x=>{const c=CENTER[x.name];return c?{name:x.name,value:c.concat(x.value)}:null}).filter(Boolean);
+  e.setOption({tooltip:{trigger:'item',formatter:p=>Array.isArray(p.value)?`${p.name}<br/>留言 ${fmt(p.value[2])} 条`:`${p.name}<br/>留言 ${fmt(p.value||0)} 条`},
+    visualMap:{min:0,max,left:14,bottom:14,calculable:true,itemHeight:88,
+      inRange:{color:['#10213f','#3a4a78','#9a6b1e','#f5b942','#ffe6a8']},textStyle:{color:'#92a6cf'}},
+    geo:{map:'hangzhou',roam:false,layoutCenter:['50%','52%'],layoutSize:'96%',
+      itemStyle:{areaColor:'#0d1830',borderColor:'rgba(120,160,230,.35)',borderWidth:1},
+      emphasis:{itemStyle:{areaColor:'#243a66'},label:{color:'#fff'}},label:{show:true,color:'#9fb3da',fontSize:11}},
+    series:[{type:'map',map:'hangzhou',geoIndex:0,data:mapData},
+      {type:'effectScatter',coordinateSystem:'geo',data:pts,symbolSize:v=>8+24*Math.sqrt((v[2]||0)/max),
+       rippleEffect:{brushType:'stroke',scale:3},itemStyle:{color:'#ffd27d',shadowBlur:12,shadowColor:'#f5b942'},zlevel:2}]});}
 
 function renderTrend(d){const e=CH.cTrend||mk('cTrend');
   const a=Object.entries(d.byMonth||{}).filter(x=>x[0]).sort();
   const months=a.map(x=>x[0]),vals=a.map(x=>x[1]);
-  e.setOption({grid:{left:8,right:18,top:18,bottom:24,containLabel:true},
-    tooltip:{trigger:'axis'},
-    dataZoom:[{type:'inside',start:Math.max(0,100-Math.min(100,6000/months.length)),end:100},
-              {type:'slider',height:14,bottom:2,start:Math.max(0,100-Math.min(100,6000/months.length)),end:100,
-               borderColor:'rgba(120,160,230,.2)',fillerColor:'rgba(245,185,66,.12)',
-               handleStyle:{color:'#f5b942'},textStyle:{color:'#5f739c',fontSize:10},dataBackground:{lineStyle:{color:'#2a3a60'},areaStyle:{color:'rgba(120,160,230,.1)'}}}],
+  // 环比/同比（基于最近一个月）
+  const n=vals.length;
+  if(n>=2){const cur=vals[n-1],prev=vals[n-2];const mom=prev?(cur-prev)/prev*100:0;
+    setBadge($('momBadge'),'环比',mom);}
+  if(n>=13){const cur=vals[n-1],yoyBase=vals[n-13];const yoy=yoyBase?(vals[n-1]-yoyBase)/yoyBase*100:0;
+    setBadge($('yoyBadge'),'同比',yoy);}
+  const z=Math.max(0,100-Math.min(100,6000/Math.max(1,months.length)));
+  e.setOption({grid:{left:8,right:18,top:14,bottom:26,containLabel:true},tooltip:{trigger:'axis'},
+    dataZoom:[{type:'inside',start:z,end:100},{type:'slider',height:14,bottom:2,start:z,end:100,
+      borderColor:'rgba(120,160,230,.2)',fillerColor:'rgba(245,185,66,.12)',handleStyle:{color:'#f5b942'},
+      textStyle:{color:'#5f739c',fontSize:10},dataBackground:{lineStyle:{color:'#2a3a60'},areaStyle:{color:'rgba(120,160,230,.1)'}}}],
     xAxis:{type:'category',data:months,...AX,axisLabel:{color:'#92a6cf',fontSize:11,interval:Math.ceil(months.length/12)}},
     yAxis:{type:'value',...AX},
     series:[{type:'line',data:vals,smooth:true,symbol:'none',
       lineStyle:{color:'#ffd27d',width:2,shadowColor:'rgba(245,185,66,.6)',shadowBlur:12},
       areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(245,185,66,.42)'},{offset:1,color:'rgba(245,185,66,.02)'}])}}]});}
+function setBadge(el,label,pct){const up=pct>=0;el.className='badge '+(up?'bg-up':'bg-dn');
+  el.textContent=`${label} ${up?'▲':'▼'}${Math.abs(pct).toFixed(1)}%`;}
 
-let geoReady=false;
-function renderMap(d){const el=$('cMap');
-  if(!geoReady){return;}
-  const e=CH.cMap||mk('cMap');
-  const mapData=Object.entries(d.byDistrict||{}).map(([k,v])=>({name:k,value:v}));
-  const pts=mapData.map(x=>{const c=CENTER[x.name];return c?{name:x.name,value:c.concat(x.value)}:null}).filter(Boolean);
-  const max=Math.max(1,...mapData.map(x=>x.value));
-  e.setOption({tooltip:{trigger:'item',formatter:p=>p.value!=null?`${p.name}<br/>留言 ${fmt(p.value[2]!=null?p.value[2]:p.value)} 条`:p.name},
-    visualMap:{min:0,max:max,left:14,bottom:14,calculable:true,
-      inRange:{color:['#10213f','#3a4a78','#9a6b1e','#f5b942','#ffe6a8']},
-      textStyle:{color:'#92a6cf'},itemHeight:90},
-    geo:{map:'hangzhou',roam:false,layoutCenter:['50%','52%'],layoutSize:'96%',
-      itemStyle:{areaColor:'#0d1830',borderColor:'rgba(120,160,230,.35)',borderWidth:1},
-      emphasis:{itemStyle:{areaColor:'#243a66'},label:{color:'#fff'}},
-      label:{show:true,color:'#9fb3da',fontSize:11}},
-    series:[
-      {type:'map',map:'hangzhou',geoIndex:0,data:mapData},
-      {type:'effectScatter',coordinateSystem:'geo',data:pts,
-       symbolSize:v=>8+24*Math.sqrt((v[2]||0)/max),
-       rippleEffect:{brushType:'stroke',scale:3},
-       itemStyle:{color:'#ffd27d',shadowBlur:12,shadowColor:'#f5b942'},zlevel:2}
-    ]});}
+let wordReady=false;
+function renderWord(d){const lo=$('cWord').querySelector('.loading');
+  const list=Object.entries(d.kw||{}).sort((x,y)=>y[1]-x[1]).slice(0,90);
+  if(!wordReady||!echarts.graphic){ // 词云插件没加载成功 → 退化为热词条
+    if(lo)lo.remove();const e=CH.cWord||mk('cWord');const top=list.slice(0,12).reverse();
+    e.setOption({grid:{left:8,right:46,top:6,bottom:6,containLabel:true},xAxis:{type:'value',...AX,axisLabel:{show:false}},
+      yAxis:{type:'category',data:top.map(x=>x[0]),...AX,axisLabel:{color:'#ffd27d',fontSize:13}},
+      series:[{type:'bar',data:top.map(x=>x[1]),barWidth:'60%',itemStyle:{borderRadius:[0,4,4,0],color:'#e09a2c'},
+        label:{show:true,position:'right',color:'#ffd27d',fontSize:11,formatter:p=>p.value}}]});return;}
+  if(lo)lo.remove();const e=CH.cWord||mk('cWord');
+  e.setOption({tooltip:{show:true,formatter:p=>`${p.name}: ${fmt(p.value)} 次`},series:[{type:'wordCloud',
+    shape:'circle',left:'center',top:'center',width:'96%',height:'92%',sizeRange:[14,58],rotationRange:[-30,30],
+    gridSize:6,drawOutOfBound:false,
+    textStyle:{fontWeight:'bold',color:()=>{const c=['#ffe6a8','#ffd27d','#f5b942','#e0a93a','#c8902f','#9fb3da','#7aa0d8'];
+      return c[Math.floor(Math.random()*c.length)];}},
+    emphasis:{textStyle:{color:'#fff'}},data:list.map(x=>({name:x[0],value:x[1]}))}]});}
 
-/* 最新留言滚动 */
 function renderTicker(d){const rec=(d.recent||[]).slice(0,40);
   $('recMeta').textContent='共 '+fmt((d.recent||[]).length)+' 条';
   const item=m=>{const cls=STG[m.status]||'st-doing';
     return `<div class="msg"><div class="top"><span class="tag ${cls}">${m.status||''}</span>
       <span class="fo">${m.forum||''}</span><span class="dt">${m.date||''}</span></div>
-      <div class="ti">${esc(m.title||'(无标题)')}</div>
-      ${m.content?`<div class="co">${esc(m.content)}</div>`:''}</div>`;};
-  const html=rec.map(item).join('');
-  const tk=$('tkTrack');tk.innerHTML=html+html;                 // 复制一份实现无缝滚动
+      <div class="ti">${esc(m.title||'(无标题)')}</div>${m.content?`<div class="co">${esc(m.content)}</div>`:''}</div>`;};
+  const html=rec.map(item).join('');const tk=$('tkTrack');tk.innerHTML=html+html;
   tk.style.animationDuration=Math.max(20,rec.length*3.2)+'s';}
 function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 
-/* KPI */
-function todayCount(d){const t=new Date();const p=n=>String(n).padStart(2,'0');
-  const key=`${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}`;
-  return (d.recent||[]).filter(m=>m.date===key).length;}
+function ym(date){return date?date.slice(0,7):'';}
 function renderKPI(d){
-  animVal($('kAll'),d.totals.all);animVal($('hTotal'),d.totals.all);
-  animVal($('kToday'),todayCount(d));
+  animVal($('hTotal'),d.totals.all);
+  const t=new Date();const p=n=>String(n).padStart(2,'0');
+  const todayKey=`${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}`;
+  const monKey=`${t.getFullYear()}-${p(t.getMonth()+1)}`;
+  animVal($('kToday'),(d.recent||[]).filter(m=>m.date===todayKey).length);
+  animVal($('kMonth'),(d.byMonth&&d.byMonth[monKey])||0);
   const rate=d.totals.all?Math.round(1000*d.totals.replied/d.totals.all)/10:0;
-  $('kRate').childNodes[0].nodeValue=rate;$('kRate').dataset.v=rate;
-  animVal($('kWait'),(d.byStatus&&d.byStatus['待回复'])||0);}
+  setNum($('kRate'),rate);}
 
 /* ============ 数据加载 ============ */
 let nextAt=0;
-async function loadData(){
-  for(const u of DATA_SOURCES){try{const r=await fetch(u+(u.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'});
-    if(r.ok)return await r.json();}catch(e){}}
-  return null;}
-function setMeta(d){const up=d.updated?d.updated.replace('T',' ').slice(0,16):'--';
-  const nd=new Date(nextAt);const p=n=>String(n).padStart(2,'0');
+async function loadData(){for(const u of DATA_SOURCES){try{const r=await fetch(u+(u.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'});
+  if(r.ok)return await r.json();}catch(e){}}return null;}
+function setMeta(d){const up=d.updated?d.updated.replace('T',' ').slice(0,16):'--';const nd=new Date(nextAt);const p=n=>String(n).padStart(2,'0');
   $('meta').textContent=`更新于 ${up} · 下次 ${p(nd.getHours())}:${p(nd.getMinutes())}`;}
 async function refresh(){const d=await loadData();
   if(!d){$('err').style.display='block';$('err').textContent='⚠ 暂无数据：请先运行 seed 生成 data.json，或等待首次抓取。';return;}
   $('err').style.display='none';
-  renderKPI(d);renderDomain(d);renderType(d);renderStatus(d);renderRank(d);renderTrend(d);renderMap(d);renderTicker(d);
+  renderKPI(d);renderSat(d);renderStatus(d);renderDomain(d);renderTrend(d);renderWord(d);renderMap(d);renderTicker(d);
   nextAt=Date.now()+REFRESH_MS;setMeta(d);}
 
 /* ============ 启动 ============ */
 function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
-let CENTER={};
+async function tryEach(list){for(const u of list){try{await loadScript(u);return true;}catch(e){}}return false;}
 async function boot(){
   fit();
-  // 加载杭州地图
-  try{const g=await(await fetch(HZ_GEOJSON)).json();
-    echarts.registerMap('hangzhou',g);
+  for(const u of GEO_SOURCES){try{const g=await(await fetch(u)).json();echarts.registerMap('hangzhou',g);
     g.features.forEach(f=>{const c=f.properties.center||f.properties.centroid;if(c)CENTER[f.properties.name]=c;});
-    geoReady=true;const lo=$('cMap').querySelector('.loading');if(lo)lo.remove();
-  }catch(e){const lo=$('cMap').querySelector('.loading');if(lo)lo.textContent='地图加载失败（网络受限）';}
-  await refresh();
-  setInterval(refresh,REFRESH_MS);
+    geoReady=true;break;}catch(e){}}
+  if(!geoReady){const lo=$('cMap').querySelector('.loading');if(lo)lo.textContent='地图加载失败';}
+  await refresh();setInterval(refresh,REFRESH_MS);
 }
 (async()=>{
-  for(const cdn of ECHARTS_CDN){try{await loadScript(cdn);break;}catch(e){}}
-  if(!window.echarts){$('err').style.display='block';$('err').textContent='⚠ ECharts 加载失败，请检查网络/CDN。';return;}
+  if(!await tryEach(ECHARTS_CDN)){$('err').style.display='block';$('err').textContent='⚠ ECharts 加载失败，请检查网络/CDN。';return;}
+  wordReady=await tryEach(WORDCLOUD_CDN);
   boot();
 })();
 </script>

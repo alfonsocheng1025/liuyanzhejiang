@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
 
       - name: 安装依赖
-        run: pip install requests
+        run: pip install requests jieba
 
       - name: 拉取 data 分支已累积的数据（首次不存在则用种子）
         run: |

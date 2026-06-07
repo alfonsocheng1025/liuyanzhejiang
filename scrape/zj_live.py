@@ -124,6 +124,15 @@ def fetch_batch(fid, last_item=0, delay=1.5):
     return [], False
 
 
+def g5(x):
+    """满意度评分归一到 1-5，无效返回 0。"""
+    try:
+        v = int(x)
+        return v if 1 <= v <= 5 else 0
+    except (TypeError, ValueError):
+        return 0
+
+
 def parse_item(it, fid):
     """API 原始 item -> 大屏用扁平记录。"""
     label, level, district = TARGET.get(fid, (str(fid), "other", None))
@@ -151,6 +160,8 @@ def parse_item(it, fid):
         "likes": int(it.get("favNum") or 0),
         "ip": it.get("ip") or "",
         "nick": it.get("nickName") or "",
+        "gManner": g5(it.get("gradeManner")),
+        "gSpeed": g5(it.get("gradeSpeed")),
     }
 
 
@@ -168,8 +179,40 @@ def blank_store():
         "byType": {},
         "byForum": {},
         "byDistrict": {},
+        "sat": {"mSum": 0, "mCnt": 0, "sSum": 0, "sCnt": 0, "dist": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0}},
+        "kw": {},          # 诉求热词：word -> count（写盘时裁剪到 TOP）
         "recent": [],
     }
+
+
+# ---- 中文分词热词（jieba 懒加载；缺失则跳过，不阻塞抓取）----
+_JIEBA = None
+STOPWORDS = set("""
+的 了 是 我 你 他 她 它 们 在 有 和 与 及 或 这 那 个 也 都 就 还 又 而 被 把 给 让 向 从 对 为 以 于
+请 问 问题 关于 一个 怎么 如何 为什么 希望 能否 可以 是否 没有 什么 哪里 这个 那个 我们 你们 他们
+情况 处理 解决 反映 咨询 投诉 求助 建议 建言 谢谢 感谢 领导 您好 你好 麻烦 现在 已经 一直 一下 这样
+浙江 浙江省 杭州 杭州市 市 区 县 镇 乡 村 街道 小区 这边 那边 目前 相关 部门 单位 关于 以及 进行 是否
+要求 上城区 拱墅区 西湖区 滨江区 萧山区 余杭区 临平区 钱塘区 富阳区 临安区 桐庐县 淳安县 建德市 宁波 温州 嘉兴 湖州 绍兴 金华 衢州 舟山 台州 丽水
+""".split())
+
+
+def extract_words(text):
+    global _JIEBA
+    if _JIEBA is None:
+        try:
+            import jieba
+            jieba.setLogLevel(60)
+            _JIEBA = jieba
+        except Exception:
+            _JIEBA = False
+    if not _JIEBA or not text:
+        return []
+    out = []
+    for w in _JIEBA.cut(text):
+        w = w.strip()
+        if len(w) >= 2 and w not in STOPWORDS and not w.isdigit():
+            out.append(w)
+    return out
 
 
 HANDLED = {"已办理", "已回复", "已解决", "办结", "已办结"}  # 视为"已办结"的状态
@@ -214,6 +257,16 @@ def add_records(store, records):
         f["count"] += 1
         if rec["district"]:
             _inc(store["byDistrict"], rec["district"])
+        # 满意度评分
+        sat = store["sat"]
+        if rec.get("gManner"):
+            sat["mSum"] += rec["gManner"]; sat["mCnt"] += 1
+            sat["dist"][str(rec["gManner"])] = sat["dist"].get(str(rec["gManner"]), 0) + 1
+        if rec.get("gSpeed"):
+            sat["sSum"] += rec["gSpeed"]; sat["sCnt"] += 1
+        # 诉求热词（取标题分词）
+        for w in extract_words(rec.get("title", "")):
+            store["kw"][w] = store["kw"].get(w, 0) + 1
         store["recent"].append(rec)
         # 推进 watermark（用当前库内最大值，本批结束后生效）
         if rec["tid"] > store["watermark"].get(str(fid), 0):
@@ -257,6 +310,7 @@ def mode_seed(csv_path, out_path):
                 "replyOrg": row.get("reply_org") or "", "replyContent": row.get("reply_content") or "",
                 "likes": int(row.get("fav_num") or 0) if (row.get("fav_num") or "").isdigit() else 0,
                 "ip": row.get("ip") or "", "nick": "",
+                "gManner": g5(row.get("grade_manner")), "gSpeed": g5(row.get("grade_speed")),
             })
     add_records(store, rows)
     store["source"] = "seed"
@@ -308,6 +362,9 @@ def load_store(path):
 
 
 def write_store(store, path):
+    # 热词裁剪到 TOP 400，避免长尾无限膨胀
+    if len(store.get("kw", {})) > 400:
+        store["kw"] = dict(sorted(store["kw"].items(), key=lambda x: -x[1])[:400])
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(store, f, ensure_ascii=False, separators=(",", ":"))
