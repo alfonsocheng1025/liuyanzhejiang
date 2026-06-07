@@ -63,6 +63,19 @@ TARGET = {
 MAIN_DISTRICTS = ["上城区", "拱墅区", "西湖区", "滨江区", "萧山区", "余杭区", "临平区", "钱塘区"]
 DISTRICT_OF = {fid: meta[2] for fid, meta in TARGET.items() if meta[2]}
 
+# 各区街道核心名（数据源无街道字段，仅能从留言正文匹配 → 覆盖率有限，约 20%）
+# 已剔除与区名重复的歧义词，降低误命中
+DISTRICT_STREETS = {
+    "上城区": ["湖滨", "清波", "小营", "望江", "紫阳", "南星", "采荷", "凯旋", "四季青", "笕桥", "彭埠", "丁兰", "九堡", "闸弄口"],
+    "拱墅区": ["米市巷", "湖墅", "小河", "和睦", "拱宸桥", "大关", "祥符", "半山", "上塘", "康桥", "东新", "长庆", "天水", "武林", "朝晖", "文晖"],
+    "西湖区": ["北山", "西溪", "翠苑", "灵隐", "留下", "转塘", "蒋村", "文新", "古荡", "三墩", "双浦"],
+    "滨江区": ["西兴", "长河", "浦沿"],
+    "萧山区": ["城厢", "北干", "蜀山", "新塘", "闻堰", "宁围", "新街", "衙前", "瓜沥", "党湾", "益农", "靖江", "南阳", "河庄", "义蓬", "临浦", "戴村", "楼塔", "河上", "进化", "所前", "浦阳"],
+    "余杭区": ["五常", "仓前", "闲林", "中泰", "仁和", "良渚", "径山", "瓶窑", "百丈", "鸬鸟", "黄湖"],
+    "临平区": ["南苑", "东湖", "星桥", "乔司", "运河", "塘栖", "崇贤"],
+    "钱塘区": ["下沙", "白杨", "前进", "临江", "新湾", "河庄", "义蓬"],
+}
+
 
 def now_cn():
     return datetime.now(CN_TZ)
@@ -184,7 +197,7 @@ def blank_store():
 def blank_district():
     return {"count": 0,
             "sat": {"mSum": 0, "mCnt": 0, "sSum": 0, "sCnt": 0, "dist": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0}},
-            "byDomain": {}, "byStatus": {}, "byType": {}, "kw": {}, "low": []}
+            "byDomain": {}, "byStatus": {}, "byType": {}, "byStreet": {}, "kw": {}, "low": []}
 
 
 def is_low(rec):
@@ -296,6 +309,12 @@ def add_records(store, records):
             _inc(dd["byDomain"], rec["domain"])
             _inc(dd["byStatus"], rec["status"])
             _inc(dd["byType"], rec["type"])
+            # 街道：正文/标题匹配该区街道名（首个命中），覆盖有限
+            _txt = (rec.get("title", "") or "") + (rec.get("content", "") or "")
+            for _s in DISTRICT_STREETS.get(rec["district"], []):
+                if _s in _txt:
+                    dd["byStreet"][_s] = dd["byStreet"].get(_s, 0) + 1
+                    break
             for w in words:
                 dd["kw"][w] = dd["kw"].get(w, 0) + 1
             if is_low(rec):
@@ -422,6 +441,8 @@ def write_store(store, path):
             dd["byDomain"] = _topn(dd["byDomain"], 10)
         if len(dd.get("byType", {})) > 8:
             dd["byType"] = _topn(dd["byType"], 8)
+        if len(dd.get("byStreet", {})) > 15:
+            dd["byStreet"] = _topn(dd["byStreet"], 15)
         dd["low"] = _trim_low(dd.get("low", []), 30)
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:

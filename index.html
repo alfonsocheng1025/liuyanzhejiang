@@ -217,6 +217,7 @@
           <div class="mpanel"><div class="mpt">群众满意度</div><div class="mchart" id="mSat"></div>
             <div class="mstat">态度 <b id="mSatM">--</b>★ · 速度 <b id="mSatS">--</b>★ · 参评 <b id="mSatN">--</b> 条</div></div>
           <div class="mpanel"><div class="mpt">办理状态</div><div class="mchart" id="mStatus"></div></div>
+          <div class="mpanel"><div class="mpt">区内街道分布 <span id="mStreetCov" style="color:var(--txt3);font-size:11px;font-weight:400"></span></div><div class="mchart" id="mStreet"></div></div>
         </div>
         <div class="mcol">
           <div class="mpanel"><div class="mpt">诉求领域 TOP</div><div class="mchart" id="mDomain"></div></div>
@@ -333,6 +334,9 @@ function openDistrict(name){const dd=(DATA&&DATA.districts||{})[name];if(!dd)ret
   $('mSatM').textContent=m.toFixed(2);$('mSatS').textContent=sp.toFixed(2);$('mSatN').textContent=fmt(s.mCnt);
   mmk('mSat').setOption(satGauge(rate,false));
   mmk('mStatus').setOption(statusDonut(dd.byStatus));
+  const bs=dd.byStreet||{},_mt=Object.values(bs).reduce((a,b)=>a+b,0);
+  $('mStreetCov').textContent=_mt?('正文识别 · 覆盖 '+Math.round(100*_mt/Math.max(1,dd.count))+'%'):'正文未提及街道';
+  mmk('mStreet').setOption(domainBar(bs,8));
   mmk('mDomain').setOption(domainBar(dd.byDomain,10));
   mmk('mWord').setOption(kwOption(dd.kw,[12,40],50));
   const low=dd.low||[];$('mLowN').textContent=low.length?`(${low.length} 条)`:'(暂无)';
