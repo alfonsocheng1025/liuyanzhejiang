@@ -75,6 +75,13 @@
   .chip{flex:1;text-align:center;background:rgba(12,20,42,.5);border:1px solid var(--line2);border-radius:7px;padding:6px 2px}
   .chip .cv{font-size:19px;font-weight:800;color:var(--gold-b);font-variant-numeric:tabular-nums}
   .chip .cv .s{font-size:12px;color:var(--gold)} .chip .cl{font-size:11px;color:var(--txt2);margin-top:1px}
+  .satdist{flex:0 0 auto;padding:2px 4px}
+  .dbbar{display:flex;height:13px;border-radius:7px;overflow:hidden;background:rgba(120,160,230,.1)}
+  .dbbar>div{height:100%}
+  .dbcap{display:flex;justify-content:space-between;font-size:11px;color:var(--txt2);margin-top:4px}
+  .duo{flex:1;display:flex;gap:4px;min-height:0}
+  .duoc{flex:1;display:flex;flex-direction:column;min-height:0}
+  .duot{flex:0 0 auto;font-size:12px;color:var(--txt2);text-align:center;letter-spacing:1px}
 
   .ticker{flex:1 1 auto;overflow:hidden;position:relative;mask-image:linear-gradient(180deg,transparent,#000 6%,#000 94%,transparent)}
   .tk-track{display:flex;flex-direction:column;gap:9px;animation:roll linear infinite}
@@ -149,14 +156,19 @@
         <div class="kpi"><div class="ico">✅</div><div class="v" id="kRate">--<small>%</small></div><div class="l">办结率</div></div>
         <div class="kpi alt"><div class="ico">⭐</div><div class="v" id="kSat">--<small>%</small></div><div class="l">群众满意率</div></div>
       </div>
-      <div class="panel" style="flex:1.05"><div class="pt"><i></i><b>群众满意度</b><span class="sp" id="satTag">SATISFACTION · 1–5★</span></div>
+      <div class="panel" style="flex:1.2"><div class="pt"><i></i><b>群众满意度</b><span class="sp" id="satTag">SATISFACTION · 1–5★</span></div>
         <div class="chart" id="cSat"></div>
+        <div class="satdist" id="satDist"></div>
         <div class="satfoot">
           <div class="chip"><div class="cv" id="satM">--<span class="s">★</span></div><div class="cl">态度评价</div></div>
           <div class="chip"><div class="cv" id="satS">--<span class="s">★</span></div><div class="cl">速度评价</div></div>
           <div class="chip"><div class="cv" id="satN">--</div><div class="cl">参评量</div></div>
         </div></div>
-      <div class="panel" style="flex:.95"><div class="pt"><i></i><b>办理状态</b><span class="sp">STATUS</span></div><div class="chart" id="cStatus"></div></div>
+      <div class="panel" style="flex:1"><div class="pt"><i></i><b>办理状态 · 诉求性质</b><span class="sp" id="structTag">STRUCTURE</span></div>
+        <div class="duo">
+          <div class="duoc"><div class="duot">办理状态</div><div class="chart" id="cStatus"></div></div>
+          <div class="duoc"><div class="duot">诉求性质</div><div class="chart" id="cType"></div></div>
+        </div></div>
     </div>
 
     <!-- 中列 -->
@@ -276,6 +288,20 @@ function kwOption(obj,sr,topN){const list=Object.entries(obj||{}).sort((x,y)=>y[
   return {grid:{left:8,right:46,top:6,bottom:6,containLabel:true},xAxis:{type:'value',...AX,axisLabel:{show:false}},
     yAxis:{type:'category',data:top.map(x=>x[0]),...AX,axisLabel:{color:'#ffd27d',fontSize:13}},
     series:[{type:'bar',data:top.map(x=>x[1]),barWidth:'60%',itemStyle:{borderRadius:[0,4,4,0],color:'#e09a2c'},label:{show:true,position:'right',color:'#ffd27d',fontSize:11,formatter:p=>p.value}}]};}
+const TYPEPAL=['#f5b942','#4aa3ff','#3fd29a','#ffd27d','#9fb3da','#c87e1f'];
+function donutMini(obj,colorFn,pal){const a=Object.entries(obj||{}).sort((x,y)=>y[1]-x[1]).slice(0,5);
+  const o={tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},
+    legend:{bottom:0,left:'center',textStyle:{color:'#cdd8f0',fontSize:11},itemWidth:9,itemHeight:9,itemGap:7},
+    series:[{type:'pie',radius:['40%','62%'],center:['50%','43%'],itemStyle:{borderColor:'#0a1020',borderWidth:2},label:{show:false},labelLine:{show:false},
+      data:a.map(x=>({name:x[0],value:x[1],itemStyle:colorFn?{color:colorFn(x[0])}:undefined}))}]};
+  if(pal)o.color=pal;return o;}
+// 满意度 1-5★ 评分分布条（揭示差评/督办群体占比）
+function distBar(dist){const order=[1,2,3,4,5];const tot=order.reduce((a,k)=>a+(+dist[k]||0),0);
+  const col={1:'#ff5b4d',2:'#ff8b5b',3:'#d9b24a',4:'#e0a93a',5:'#f5b942'};
+  if(!tot)return '<div class="dbcap" style="justify-content:center;color:#5f739c">暂无评分数据</div>';
+  let seg='';order.forEach(k=>{const v=+dist[k]||0,w=100*v/tot;if(w>0)seg+=`<div title="${k}★ ${v}条" style="width:${w}%;background:${col[k]}"></div>`;});
+  const one=+dist[1]||0;
+  return `<div class="dbbar">${seg}</div><div class="dbcap"><span>评分分布 1★→5★</span><span style="color:#ff9b8f">1★差评 ${fmt(one)} 条 (${(100*one/tot).toFixed(1)}%)</span></div>`;}
 
 /* ====== 区县对比弹窗 ====== */
 let DATA=null;const MCH={};
@@ -323,32 +349,35 @@ let carTimer=null,carIdx=0;
 function startCar(e){stopCar();
   const names=MAIN_DISTRICTS.filter(n=>DATA&&DATA.districts&&DATA.districts[n]);
   if(!names.length||!e)return;
-  const step=()=>{const name=names[carIdx%names.length];carIdx++;
+  const seq=names.concat(['__ALL__']);   // 8 区逐个轮播 + 全市总览收尾，再循环
+  const step=()=>{const key=seq[carIdx%seq.length];carIdx++;
     try{e.dispatchAction({type:'downplay',seriesIndex:0});
-      e.dispatchAction({type:'highlight',seriesIndex:0,name});
-      e.dispatchAction({type:'showTip',seriesIndex:0,name});
-      spotlight(name);}catch(_){}};
+      if(key==='__ALL__'){e.dispatchAction({type:'hideTip'});showAll();}
+      else{e.dispatchAction({type:'highlight',seriesIndex:0,name:key});
+        e.dispatchAction({type:'showTip',seriesIndex:0,name:key});spotlight(key);}
+    }catch(_){}};
   step();carTimer=setInterval(step,5500);}
 function stopCar(){if(carTimer){clearInterval(carTimer);carTimer=null;}}
 
-/* ============ 各图渲染 ============ */
-function renderDomain(d){(CH.cDomain||mk('cDomain')).setOption(domainBar(d.byDomain,10));}
-
-function renderStatus(d){(CH.cStatus||mk('cStatus')).setOption(statusDonut(d.byStatus));}
-
+/* ============ 渲染与轮播联动 ============ */
 function setTag(id,name,def){const el=$(id);if(!el)return;
   if(name)el.innerHTML='▶ <span style="color:#ffd27d;font-weight:700">'+name+'</span>';else el.textContent=def;}
 function applySat(s,label){const m=s&&s.mCnt?s.mSum/s.mCnt:0,sp=s&&s.sCnt?s.sSum/s.sCnt:0,rate=satRate(s);
   $('satM').childNodes[0].nodeValue=m.toFixed(2);$('satS').childNodes[0].nodeValue=sp.toFixed(2);
   setNum($('satN'),fmt((s&&s.mCnt)||0));
   (CH.cSat||mk('cSat')).setOption(satGauge(rate,true));
+  $('satDist').innerHTML=distBar((s&&s.dist)||{});
   setTag('satTag',label,'SATISFACTION · 1–5★');}
-function renderSat(d){setNum($('kSat'),satRate(d.sat).toFixed(1));applySat(d.sat,null);}
-// 轮播联动：满意度仪表 + 诉求领域 + 热词 跟随当前区切换
-function spotlight(name){const dd=DATA&&DATA.districts&&DATA.districts[name];if(!dd)return;
-  applySat(dd.sat,name);
-  (CH.cDomain||mk('cDomain')).setOption(domainBar(dd.byDomain,10));setTag('domainTag',name,'TOP 10 DOMAIN');
-  (CH.cWord||mk('cWord')).setOption(kwOption(dd.kw,[14,58],90));setTag('wordTag',name,'HOT TOPICS');}
+// 作用域联动（某区 / 全市）：满意度仪表+评分分布 + 领域 + 热词 + 办理状态 + 诉求性质 一起切换
+function applyScope(o,label){
+  applySat(o.sat,label);
+  (CH.cDomain||mk('cDomain')).setOption(domainBar(o.byDomain,10));setTag('domainTag',label,'TOP 10 DOMAIN');
+  (CH.cWord||mk('cWord')).setOption(kwOption(o.kw,[14,58],90));setTag('wordTag',label,'HOT TOPICS');
+  (CH.cStatus||mk('cStatus')).setOption(donutMini(o.byStatus,k=>STC[k]||'#7aa0d8'));
+  (CH.cType||mk('cType')).setOption(donutMini(o.byType,null,TYPEPAL));
+  setTag('structTag',label,'STRUCTURE');}
+function spotlight(name){const dd=DATA&&DATA.districts&&DATA.districts[name];if(dd)applyScope(dd,name);}
+function showAll(){if(DATA)applyScope(DATA,'全市');}
 
 let geoReady=false,CENTER={};
 function renderMap(d){if(!geoReady)return;const e=CH.cMap||mk('cMap');
@@ -396,8 +425,6 @@ function setBadge(el,label,pct){const up=pct>=0;el.className='badge '+(up?'bg-up
   el.textContent=`${label} ${up?'▲':'▼'}${Math.abs(pct).toFixed(1)}%`;}
 
 let wordReady=false;
-function renderWord(d){const lo=$('cWord').querySelector('.loading');if(lo)lo.remove();
-  (CH.cWord||mk('cWord')).setOption(kwOption(d.kw,[14,58],90));}
 
 function renderTicker(d){const rec=(d.recent||[]).slice(0,40);
   $('recMeta').textContent='共 '+fmt((d.recent||[]).length)+' 条';
@@ -418,7 +445,8 @@ function renderKPI(d){
   animVal($('kToday'),(d.recent||[]).filter(m=>m.date===todayKey).length);
   animVal($('kMonth'),(d.byMonth&&d.byMonth[monKey])||0);
   const rate=d.totals.all?Math.round(1000*d.totals.replied/d.totals.all)/10:0;
-  setNum($('kRate'),rate);}
+  setNum($('kRate'),rate);
+  setNum($('kSat'),satRate(d.sat).toFixed(1));}
 
 /* ============ 数据加载 ============ */
 let nextAt=0;
@@ -429,7 +457,7 @@ function setMeta(d){const up=d.updated?d.updated.replace('T',' ').slice(0,16):'-
 async function refresh(){const d=await loadData();
   if(!d){$('err').style.display='block';$('err').textContent='⚠ 暂无数据：请先运行 seed 生成 data.json，或等待首次抓取。';return;}
   $('err').style.display='none';DATA=d;
-  renderKPI(d);renderSat(d);renderStatus(d);renderDomain(d);renderTrend(d);renderWord(d);renderMap(d);renderTicker(d);
+  renderKPI(d);renderTrend(d);renderTicker(d);showAll();renderMap(d);
   nextAt=Date.now()+REFRESH_MS;setMeta(d);}
 
 /* ============ 启动 ============ */
@@ -446,7 +474,9 @@ async function boot(){
     g.features.forEach(f=>{const c=f.properties.center||f.properties.centroid;if(c)CENTER[f.properties.name]=c;});
     geoReady=true;break;}catch(e){}}
   if(!geoReady){const lo=$('cMap').querySelector('.loading');if(lo)lo.textContent='地图加载失败';}
-  await refresh();setInterval(refresh,REFRESH_MS);
+  await refresh();
+  document.querySelectorAll('.loading').forEach(el=>el.remove());
+  setInterval(refresh,REFRESH_MS);
 }
 (async()=>{
   if(!await tryEach(ECHARTS_CDN)){$('err').style.display='block';$('err').textContent='⚠ ECharts 加载失败，请检查网络/CDN。';return;}

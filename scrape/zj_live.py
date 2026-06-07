@@ -184,7 +184,7 @@ def blank_store():
 def blank_district():
     return {"count": 0,
             "sat": {"mSum": 0, "mCnt": 0, "sSum": 0, "sCnt": 0, "dist": {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0}},
-            "byDomain": {}, "byStatus": {}, "kw": {}, "low": []}
+            "byDomain": {}, "byStatus": {}, "byType": {}, "kw": {}, "low": []}
 
 
 def is_low(rec):
@@ -289,10 +289,13 @@ def add_records(store, records):
         # 各主城区画像
         if rec.get("district"):
             dd = store["districts"].setdefault(rec["district"], blank_district())
+            for _k, _v in blank_district().items():
+                dd.setdefault(_k, _v)   # 兼容旧 schema：补齐缺失键，防 KeyError
             dd["count"] += 1
             _add_sat(dd["sat"], rec)
             _inc(dd["byDomain"], rec["domain"])
             _inc(dd["byStatus"], rec["status"])
+            _inc(dd["byType"], rec["type"])
             for w in words:
                 dd["kw"][w] = dd["kw"].get(w, 0) + 1
             if is_low(rec):
@@ -417,6 +420,8 @@ def write_store(store, path):
             dd["kw"] = _topn(dd["kw"], 40)
         if len(dd.get("byDomain", {})) > 10:
             dd["byDomain"] = _topn(dd["byDomain"], 10)
+        if len(dd.get("byType", {})) > 8:
+            dd["byType"] = _topn(dd["byType"], 8)
         dd["low"] = _trim_low(dd.get("low", []), 30)
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
