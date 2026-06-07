@@ -1,0 +1,16 @@
+# 验证/构建临时产物
+node_modules/
+package.json
+package-lock.json
+*.mjs
+shot*.png
+crop_*.png
+_check.js
+
+# Python
+__pycache__/
+*.pyc
+
+# 旧全量爬虫的断点文件
+.crawl_progress.json
+.failed_forums.txt

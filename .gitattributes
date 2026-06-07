@@ -1,0 +1,6 @@
+# GitHub Actions 在 Linux 上跑，shell/脚本类必须用 LF，否则 \r 会让命令报错
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+*.py    text eol=lf
+*.js    text eol=lf

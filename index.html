@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>浙江省 · 杭州市领导留言板 实时统揽</title>
+<style>
+  :root{
+    --bg0:#05070f; --bg1:#0a1020; --bg2:#0e1730;
+    --panel:rgba(16,26,52,.55); --panel2:rgba(20,32,64,.35);
+    --line:rgba(245,185,66,.22); --line2:rgba(120,160,230,.14);
+    --gold:#f5b942; --gold-b:#ffd27d; --gold-d:#c8902f;
+    --txt:#e9eefc; --txt2:#92a6cf; --txt3:#5f739c;
+    --red:#ff6b5b; --blue:#4aa3ff; --green:#3fd29a;
+    --glow:0 0 18px rgba(245,185,66,.35);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:var(--bg0);overflow:hidden;
+    font-family:"PingFang SC","Microsoft YaHei","Segoe UI",-apple-system,sans-serif;color:var(--txt)}
+  /* 1920x1080 设计画布，整体缩放铺满任意大屏 */
+  #stage{position:fixed;left:50%;top:50%;width:1920px;height:1080px;transform-origin:center center;
+    background:
+      radial-gradient(1200px 700px at 70% -10%, rgba(60,90,170,.18), transparent 60%),
+      radial-gradient(900px 600px at 10% 110%, rgba(245,185,66,.10), transparent 60%),
+      linear-gradient(160deg,var(--bg0),var(--bg1) 55%,var(--bg2));
+    overflow:hidden}
+  #stage::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:linear-gradient(rgba(120,160,230,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(120,160,230,.05) 1px,transparent 1px);
+    background-size:48px 48px;mask-image:radial-gradient(circle at 50% 45%,#000 55%,transparent 100%)}
+
+  /* 顶栏 */
+  header{position:relative;height:84px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 34px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(245,185,66,.08),transparent)}
+  header::after{content:"";position:absolute;left:0;bottom:-1px;height:1px;width:100%;
+    background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.7}
+  .brand{display:flex;align-items:center;gap:18px}
+  .brand .mk{width:46px;height:46px;border:2px solid var(--gold);border-radius:9px;display:flex;
+    align-items:center;justify-content:center;font-size:22px;color:var(--gold);box-shadow:var(--glow);
+    background:radial-gradient(circle,rgba(245,185,66,.18),transparent)}
+  .brand h1{font-size:30px;font-weight:800;letter-spacing:3px;
+    background:linear-gradient(180deg,#fff,var(--gold-b) 60%,var(--gold));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 26px rgba(245,185,66,.25)}
+  .brand .sub{font-size:13px;color:var(--txt2);letter-spacing:2px;margin-top:3px}
+  .hcenter{text-align:center}
+  .hcenter .clock{font-size:34px;font-weight:700;letter-spacing:3px;font-variant-numeric:tabular-nums;
+    color:var(--gold-b);text-shadow:var(--glow)}
+  .hcenter .cdate{font-size:13px;color:var(--txt2);letter-spacing:4px;margin-top:2px}
+  .hright{display:flex;align-items:center;gap:26px}
+  .stat{text-align:right}
+  .stat .v{font-size:26px;font-weight:800;color:var(--gold-b);font-variant-numeric:tabular-nums;text-shadow:var(--glow)}
+  .stat .l{font-size:12px;color:var(--txt2);letter-spacing:2px;margin-top:2px}
+  .live{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt2);letter-spacing:1px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:blink 1.4s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+  /* 主体三列 */
+  #main{height:996px;display:grid;grid-template-columns:432px 1fr 432px;gap:14px;padding:14px 16px}
+  .col{display:flex;flex-direction:column;gap:14px;min-height:0}
+  .panel{position:relative;background:var(--panel);border:1px solid var(--line2);border-radius:10px;
+    padding:12px 14px 8px;min-height:0;display:flex;flex-direction:column;
+    box-shadow:inset 0 0 40px rgba(10,18,40,.5),0 6px 24px rgba(0,0,0,.35);backdrop-filter:blur(3px)}
+  /* 四角科技角标 */
+  .panel::before,.panel::after{content:"";position:absolute;width:14px;height:14px;border:2px solid var(--gold);opacity:.55}
+  .panel::before{left:-1px;top:-1px;border-right:none;border-bottom:none;border-radius:4px 0 0 0}
+  .panel::after{right:-1px;bottom:-1px;border-left:none;border-top:none;border-radius:0 0 4px 0}
+  .pt{display:flex;align-items:center;gap:9px;margin-bottom:6px;flex:0 0 auto}
+  .pt b{font-size:16px;font-weight:700;letter-spacing:2px;color:#fff}
+  .pt i{width:4px;height:15px;background:linear-gradient(var(--gold-b),var(--gold-d));border-radius:2px;box-shadow:var(--glow)}
+  .pt span{margin-left:auto;font-size:11px;color:var(--txt3);letter-spacing:1px}
+  .chart{flex:1 1 auto;min-height:0;width:100%}
+
+  /* KPI */
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:0 0 auto}
+  .kpi{position:relative;background:linear-gradient(150deg,rgba(245,185,66,.10),rgba(20,32,64,.3));
+    border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:hidden}
+  .kpi .ico{position:absolute;right:10px;top:8px;font-size:30px;opacity:.16}
+  .kpi .v{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--gold-b);
+    text-shadow:var(--glow);line-height:1.1}
+  .kpi .v small{font-size:16px;color:var(--txt2);font-weight:600;margin-left:2px}
+  .kpi .l{font-size:13px;color:var(--txt2);letter-spacing:1px;margin-top:5px}
+  .kpi.alt .v{color:#fff}
+
+  /* 最新留言滚动 */
+  .ticker{flex:1 1 auto;overflow:hidden;position:relative;mask-image:linear-gradient(180deg,transparent,#000 6%,#000 94%,transparent)}
+  .tk-track{display:flex;flex-direction:column;gap:9px;animation:roll linear infinite}
+  .ticker:hover .tk-track{animation-play-state:paused}
+  @keyframes roll{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+  .msg{border:1px solid var(--line2);border-left:3px solid var(--gold);border-radius:7px;padding:8px 11px;
+    background:rgba(12,20,42,.5)}
+  .msg .top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .msg .tag{font-size:11px;padding:1px 7px;border-radius:4px;color:#0a0e18;font-weight:700;background:var(--gold)}
+  .msg .fo{font-size:12px;color:var(--gold-b);font-weight:600}
+  .msg .dt{margin-left:auto;font-size:11px;color:var(--txt3);font-variant-numeric:tabular-nums}
+  .msg .ti{font-size:14px;color:#eef3ff;font-weight:600;line-height:1.35;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .msg .co{font-size:12px;color:var(--txt2);line-height:1.4;margin-top:3px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .st-done{background:var(--gold)} .st-doing{background:var(--blue);color:#fff} .st-wait{background:var(--red);color:#fff}
+
+  #err{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--txt2);font-size:18px;
+    text-align:center;display:none;z-index:9}
+  .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--txt3);font-size:13px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <header>
+    <div class="brand">
+      <div class="mk">浙</div>
+      <div>
+        <h1>浙江省 · 杭州市领导留言板 实时统揽</h1>
+        <div class="sub">ZHEJIANG · HANGZHOU LEADERSHIP MESSAGE BOARD — REAL-TIME COMMAND PANEL</div>
+      </div>
+    </div>
+    <div class="hcenter">
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="cdate" id="cdate">----年--月--日 星期-</div>
+    </div>
+    <div class="hright">
+      <div class="stat"><div class="v" id="hTotal">--</div><div class="l">累计留言 TOTAL</div></div>
+      <div style="text-align:right">
+        <div class="live"><span class="dot"></span>LIVE · 每10分钟刷新</div>
+        <div class="l" style="font-size:12px;color:var(--txt3);margin-top:6px" id="meta">更新于 -- · 下次 --:--</div>
+      </div>
+    </div>
+  </header>
+
+  <div id="main">
+    <!-- 左列 -->
+    <div class="col">
+      <div class="kpis">
+        <div class="kpi"><div class="ico">📨</div><div class="v" id="kAll">--</div><div class="l">累计留言</div></div>
+        <div class="kpi alt"><div class="ico">📈</div><div class="v" id="kToday">--</div><div class="l">今日新增</div></div>
+        <div class="kpi"><div class="ico">✅</div><div class="v" id="kRate">--<small>%</small></div><div class="l">办结率</div></div>
+        <div class="kpi alt"><div class="ico">⏳</div><div class="v" id="kWait">--</div><div class="l">累计待回复</div></div>
+      </div>
+      <div class="panel" style="flex:1.1"><div class="pt"><i></i><b>诉求领域分布</b><span>TOP 10 DOMAIN</span></div><div class="chart" id="cDomain"></div></div>
+      <div class="panel" style="flex:.9"><div class="pt"><i></i><b>诉求类型</b><span>BY TYPE</span></div><div class="chart" id="cType"></div></div>
+    </div>
+
+    <!-- 中列 -->
+    <div class="col">
+      <div class="panel" style="flex:1.7"><div class="pt"><i></i><b>杭州市各区县留言热力</b><span>HANGZHOU DISTRICTS</span></div>
+        <div class="chart" id="cMap"><div class="loading">地图加载中…</div></div></div>
+      <div class="panel" style="flex:1"><div class="pt"><i></i><b>月度留言趋势（含历史）</b><span>MONTHLY TREND</span></div>
+        <div class="chart" id="cTrend"></div></div>
+    </div>
+
+    <!-- 右列 -->
+    <div class="col">
+      <div class="panel" style="flex:1.5"><div class="pt"><i></i><b>最新留言</b><span id="recMeta">LATEST</span></div>
+        <div class="ticker"><div class="tk-track" id="tkTrack"></div></div></div>
+      <div class="panel" style="flex:1"><div class="pt"><i></i><b>版块热度排行</b><span>TOP FORUMS</span></div><div class="chart" id="cRank"></div></div>
+      <div class="panel" style="flex:.8"><div class="pt"><i></i><b>办理状态</b><span>STATUS</span></div><div class="chart" id="cStatus"></div></div>
+    </div>
+  </div>
+</div>
+<div id="err"></div>
+
+<script>
+/* ============ 配置 ============ */
+const REFRESH_MS = 10 * 60 * 1000;                 // 10 分钟自动刷新
+const DATA_SOURCES = ['/api/data', './data.json']; // 线上走 Vercel 接口，本地回落到同目录文件
+const HZ_GEOJSON = 'https://geo.datav.aliyun.com/areas_v3/bound/330100_full.json';
+const ECHARTS_CDN = ['https://cdn.staticfile.net/echarts/5.5.1/echarts.min.js',
+                     'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js'];
+
+/* ============ 自适应缩放 ============ */
+function fit(){const s=Math.min(innerWidth/1920,innerHeight/1080);
+  document.getElementById('stage').style.transform=`translate(-50%,-50%) scale(${s})`;}
+addEventListener('resize',()=>{fit();Object.values(CH).forEach(c=>c&&c.resize());});
+
+/* ============ 时钟 ============ */
+const WK=['日','一','二','三','四','五','六'];
+function tick(){const d=new Date();const p=n=>String(n).padStart(2,'0');
+  document.getElementById('clock').textContent=`${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  document.getElementById('cdate').textContent=`${d.getFullYear()}年${p(d.getMonth()+1)}月${p(d.getDate())}日 星期${WK[d.getDay()]}`;}
+setInterval(tick,1000);tick();
+
+/* ============ 工具 ============ */
+const $=id=>document.getElementById(id);
+const fmt=n=>(n||0).toLocaleString('en-US');
+function animVal(el,to,suffix=''){const from=+(el.dataset.v||0);if(from===to){el.childNodes[0].nodeValue=fmt(to);return;}
+  el.dataset.v=to;const t0=performance.now(),dur=900;
+  (function step(t){const k=Math.min(1,(t-t0)/dur);const v=Math.round(from+(to-from)*(1-Math.pow(1-k,3)));
+    el.childNodes[0].nodeValue=fmt(v);if(k<1)requestAnimationFrame(step);})(performance.now());}
+const STG={'待回复':'st-wait','处理中':'st-doing','办理中':'st-doing','已办理':'st-done','已回复':'st-done','已解决':'st-done'};
+const STC={'待回复':'#ff6b5b','处理中':'#4aa3ff','办理中':'#4aa3ff','已办理':'#f5b942','已回复':'#ffd27d','已解决':'#3fd29a'};
+
+/* ============ ECharts 公共样式 ============ */
+const AX={axisLine:{lineStyle:{color:'rgba(120,160,230,.25)'}},axisLabel:{color:'#92a6cf',fontSize:12},
+  splitLine:{lineStyle:{color:'rgba(120,160,230,.08)'}},axisTick:{show:false}};
+const GOLD=['#ffe6a8','#ffd27d','#f5b942','#e09a2c','#c87e1f'];
+const CH={};
+function mk(id){const c=echarts.init($(id),null,{renderer:'canvas'});CH[id]=c;return c;}
+
+/* ============ 各图渲染 ============ */
+function renderDomain(d){const e=CH.cDomain||mk('cDomain');
+  const a=Object.entries(d.byDomain||{}).sort((x,y)=>y[1]-x[1]).slice(0,10).reverse();
+  e.setOption({grid:{left:8,right:54,top:8,bottom:6,containLabel:true},
+    xAxis:{type:'value',...AX,splitLine:{lineStyle:{color:'rgba(120,160,230,.08)'}}},
+    yAxis:{type:'category',data:a.map(x=>x[0]),...AX,axisLabel:{color:'#cdd8f0',fontSize:13}},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+    series:[{type:'bar',data:a.map(x=>x[1]),barWidth:'58%',
+      itemStyle:{borderRadius:[0,5,5,0],color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#9a6b1e'},{offset:1,color:'#ffd27d'}])},
+      label:{show:true,position:'right',color:'#ffd27d',fontSize:12,fontWeight:600,formatter:p=>fmt(p.value)}}]});}
+
+function renderType(d){const e=CH.cType||mk('cType');
+  const a=Object.entries(d.byType||{}).sort((x,y)=>y[1]-x[1]).slice(0,6);
+  e.setOption({tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},
+    legend:{type:'scroll',orient:'vertical',right:6,top:'center',textStyle:{color:'#92a6cf',fontSize:12},itemWidth:10,itemHeight:10},
+    color:GOLD.concat(['#7aa0d8','#5f739c']),
+    series:[{type:'pie',radius:['42%','70%'],center:['38%','52%'],avoidLabelOverlap:true,
+      itemStyle:{borderColor:'#0a1020',borderWidth:2},
+      label:{show:false},labelLine:{show:false},
+      data:a.map(x=>({name:x[0],value:x[1]}))}]});}
+
+function renderStatus(d){const e=CH.cStatus||mk('cStatus');
+  const a=Object.entries(d.byStatus||{}).sort((x,y)=>y[1]-x[1]);
+  e.setOption({tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},
+    legend:{orient:'vertical',right:8,top:'center',textStyle:{color:'#cdd8f0',fontSize:13},itemWidth:11,itemHeight:11},
+    series:[{type:'pie',radius:['52%','74%'],center:['36%','52%'],
+      itemStyle:{borderColor:'#0a1020',borderWidth:2},label:{show:false},labelLine:{show:false},
+      data:a.map(x=>({name:x[0],value:x[1],itemStyle:{color:STC[x[0]]||'#7aa0d8'}}))}]});}
+
+function renderRank(d){const e=CH.cRank||mk('cRank');
+  const a=Object.entries(d.byForum||{}).map(([k,v])=>[k,v.count]).sort((x,y)=>y[1]-x[1]).slice(0,9).reverse();
+  e.setOption({grid:{left:8,right:50,top:6,bottom:6,containLabel:true},
+    xAxis:{type:'value',...AX},
+    yAxis:{type:'category',data:a.map(x=>x[0]),...AX,axisLabel:{color:'#cdd8f0',fontSize:12}},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+    series:[{type:'bar',data:a.map(x=>x[1]),barWidth:'55%',
+      itemStyle:{borderRadius:[0,5,5,0],color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#2a4a8a'},{offset:1,color:'#4aa3ff'}])},
+      label:{show:true,position:'right',color:'#9fc4ff',fontSize:11,formatter:p=>fmt(p.value)}}]});}
+
+function renderTrend(d){const e=CH.cTrend||mk('cTrend');
+  const a=Object.entries(d.byMonth||{}).filter(x=>x[0]).sort();
+  const months=a.map(x=>x[0]),vals=a.map(x=>x[1]);
+  e.setOption({grid:{left:8,right:18,top:18,bottom:24,containLabel:true},
+    tooltip:{trigger:'axis'},
+    dataZoom:[{type:'inside',start:Math.max(0,100-Math.min(100,6000/months.length)),end:100},
+              {type:'slider',height:14,bottom:2,start:Math.max(0,100-Math.min(100,6000/months.length)),end:100,
+               borderColor:'rgba(120,160,230,.2)',fillerColor:'rgba(245,185,66,.12)',
+               handleStyle:{color:'#f5b942'},textStyle:{color:'#5f739c',fontSize:10},dataBackground:{lineStyle:{color:'#2a3a60'},areaStyle:{color:'rgba(120,160,230,.1)'}}}],
+    xAxis:{type:'category',data:months,...AX,axisLabel:{color:'#92a6cf',fontSize:11,interval:Math.ceil(months.length/12)}},
+    yAxis:{type:'value',...AX},
+    series:[{type:'line',data:vals,smooth:true,symbol:'none',
+      lineStyle:{color:'#ffd27d',width:2,shadowColor:'rgba(245,185,66,.6)',shadowBlur:12},
+      areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(245,185,66,.42)'},{offset:1,color:'rgba(245,185,66,.02)'}])}}]});}
+
+let geoReady=false;
+function renderMap(d){const el=$('cMap');
+  if(!geoReady){return;}
+  const e=CH.cMap||mk('cMap');
+  const mapData=Object.entries(d.byDistrict||{}).map(([k,v])=>({name:k,value:v}));
+  const pts=mapData.map(x=>{const c=CENTER[x.name];return c?{name:x.name,value:c.concat(x.value)}:null}).filter(Boolean);
+  const max=Math.max(1,...mapData.map(x=>x.value));
+  e.setOption({tooltip:{trigger:'item',formatter:p=>p.value!=null?`${p.name}<br/>留言 ${fmt(p.value[2]!=null?p.value[2]:p.value)} 条`:p.name},
+    visualMap:{min:0,max:max,left:14,bottom:14,calculable:true,
+      inRange:{color:['#10213f','#3a4a78','#9a6b1e','#f5b942','#ffe6a8']},
+      textStyle:{color:'#92a6cf'},itemHeight:90},
+    geo:{map:'hangzhou',roam:false,layoutCenter:['50%','52%'],layoutSize:'96%',
+      itemStyle:{areaColor:'#0d1830',borderColor:'rgba(120,160,230,.35)',borderWidth:1},
+      emphasis:{itemStyle:{areaColor:'#243a66'},label:{color:'#fff'}},
+      label:{show:true,color:'#9fb3da',fontSize:11}},
+    series:[
+      {type:'map',map:'hangzhou',geoIndex:0,data:mapData},
+      {type:'effectScatter',coordinateSystem:'geo',data:pts,
+       symbolSize:v=>8+24*Math.sqrt((v[2]||0)/max),
+       rippleEffect:{brushType:'stroke',scale:3},
+       itemStyle:{color:'#ffd27d',shadowBlur:12,shadowColor:'#f5b942'},zlevel:2}
+    ]});}
+
+/* 最新留言滚动 */
+function renderTicker(d){const rec=(d.recent||[]).slice(0,40);
+  $('recMeta').textContent='共 '+fmt((d.recent||[]).length)+' 条';
+  const item=m=>{const cls=STG[m.status]||'st-doing';
+    return `<div class="msg"><div class="top"><span class="tag ${cls}">${m.status||''}</span>
+      <span class="fo">${m.forum||''}</span><span class="dt">${m.date||''}</span></div>
+      <div class="ti">${esc(m.title||'(无标题)')}</div>
+      ${m.content?`<div class="co">${esc(m.content)}</div>`:''}</div>`;};
+  const html=rec.map(item).join('');
+  const tk=$('tkTrack');tk.innerHTML=html+html;                 // 复制一份实现无缝滚动
+  tk.style.animationDuration=Math.max(20,rec.length*3.2)+'s';}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+/* KPI */
+function todayCount(d){const t=new Date();const p=n=>String(n).padStart(2,'0');
+  const key=`${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}`;
+  return (d.recent||[]).filter(m=>m.date===key).length;}
+function renderKPI(d){
+  animVal($('kAll'),d.totals.all);animVal($('hTotal'),d.totals.all);
+  animVal($('kToday'),todayCount(d));
+  const rate=d.totals.all?Math.round(1000*d.totals.replied/d.totals.all)/10:0;
+  $('kRate').childNodes[0].nodeValue=rate;$('kRate').dataset.v=rate;
+  animVal($('kWait'),(d.byStatus&&d.byStatus['待回复'])||0);}
+
+/* ============ 数据加载 ============ */
+let nextAt=0;
+async function loadData(){
+  for(const u of DATA_SOURCES){try{const r=await fetch(u+(u.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'});
+    if(r.ok)return await r.json();}catch(e){}}
+  return null;}
+function setMeta(d){const up=d.updated?d.updated.replace('T',' ').slice(0,16):'--';
+  const nd=new Date(nextAt);const p=n=>String(n).padStart(2,'0');
+  $('meta').textContent=`更新于 ${up} · 下次 ${p(nd.getHours())}:${p(nd.getMinutes())}`;}
+async function refresh(){const d=await loadData();
+  if(!d){$('err').style.display='block';$('err').textContent='⚠ 暂无数据：请先运行 seed 生成 data.json，或等待首次抓取。';return;}
+  $('err').style.display='none';
+  renderKPI(d);renderDomain(d);renderType(d);renderStatus(d);renderRank(d);renderTrend(d);renderMap(d);renderTicker(d);
+  nextAt=Date.now()+REFRESH_MS;setMeta(d);}
+
+/* ============ 启动 ============ */
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+let CENTER={};
+async function boot(){
+  fit();
+  // 加载杭州地图
+  try{const g=await(await fetch(HZ_GEOJSON)).json();
+    echarts.registerMap('hangzhou',g);
+    g.features.forEach(f=>{const c=f.properties.center||f.properties.centroid;if(c)CENTER[f.properties.name]=c;});
+    geoReady=true;const lo=$('cMap').querySelector('.loading');if(lo)lo.remove();
+  }catch(e){const lo=$('cMap').querySelector('.loading');if(lo)lo.textContent='地图加载失败（网络受限）';}
+  await refresh();
+  setInterval(refresh,REFRESH_MS);
+}
+(async()=>{
+  for(const cdn of ECHARTS_CDN){try{await loadScript(cdn);break;}catch(e){}}
+  if(!window.echarts){$('err').style.display='block';$('err').textContent='⚠ ECharts 加载失败，请检查网络/CDN。';return;}
+  boot();
+})();
+</script>
+</body>
+</html>

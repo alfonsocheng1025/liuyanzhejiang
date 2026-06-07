@@ -1,0 +1,50 @@
+name: crawl
+
+# 每 10 分钟增量抓取浙江省·杭州市领导留言板，把累积结果推到 data 分支。
+# 注意：GitHub 免费版的定时任务在高峰期可能延迟或偶尔跳过（非精确每 10 分钟），
+#       且仓库 60 天无活动会自动暂停定时任务——这对本场景完全够用。
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}   # 支持在 Actions 页面手动触发
+
+permissions:
+  contents: write
+
+concurrency:
+  group: crawl
+  cancel-in-progress: false   # 不打断正在进行的抓取
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码（main，含种子 data.json）
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 拉取 data 分支已累积的数据（首次不存在则用种子）
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/data/data.json?t=$(date +%s)" -o data.json \
+            && echo "已载入 data 分支累积数据" \
+            || echo "data 分支尚不存在，使用 main 的种子 data.json 起步"
+
+      - name: 增量抓取
+        run: python scrape/zj_live.py --mode update --data data.json --out data.json --delay 2.0
+
+      - name: 推送到 data 分支（单文件、单提交，避免历史膨胀）
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan data_tmp
+          git rm -rf --cached . >/dev/null 2>&1 || true
+          git add -f data.json
+          git commit -m "data: $(date -u +%FT%TZ)" || { echo "无变化，跳过"; exit 0; }
+          git push -f origin data_tmp:data
