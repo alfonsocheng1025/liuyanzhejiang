@@ -130,8 +130,8 @@
 <div id="stage">
   <header>
     <div class="brand"><div class="mk">浙</div>
-      <div><h1>浙江省 · 杭州市领导留言板 实时统揽</h1>
-        <div class="sub">ZHEJIANG · HANGZHOU LEADERSHIP MESSAGE BOARD — REAL-TIME COMMAND PANEL</div></div></div>
+      <div><h1>领导留言板实时监测 | 浙江省杭州市</h1>
+        <div class="sub">ZHEJIANG · HANGZHOU LEADERSHIP MESSAGE BOARD — REAL-TIME MONITORING</div></div></div>
     <div class="hcenter"><div class="clock" id="clock">--:--:--</div><div class="cdate" id="cdate">----年--月--日 星期-</div></div>
     <div class="hright">
       <div class="stat"><div class="v" id="hTotal">--</div><div class="l">累计留言 TOTAL</div></div>
@@ -149,7 +149,7 @@
         <div class="kpi"><div class="ico">✅</div><div class="v" id="kRate">--<small>%</small></div><div class="l">办结率</div></div>
         <div class="kpi alt"><div class="ico">⭐</div><div class="v" id="kSat">--<small>%</small></div><div class="l">群众满意率</div></div>
       </div>
-      <div class="panel" style="flex:1.05"><div class="pt"><i></i><b>群众满意度</b><span class="sp">SATISFACTION · 1–5★</span></div>
+      <div class="panel" style="flex:1.05"><div class="pt"><i></i><b>群众满意度</b><span class="sp" id="satTag">SATISFACTION · 1–5★</span></div>
         <div class="chart" id="cSat"></div>
         <div class="satfoot">
           <div class="chip"><div class="cv" id="satM">--<span class="s">★</span></div><div class="cl">态度评价</div></div>
@@ -170,11 +170,11 @@
 
     <!-- 右列 -->
     <div class="col">
-      <div class="panel" style="flex:1.05"><div class="pt"><i></i><b>诉求热词 · 民意热点</b><span class="sp">HOT TOPICS</span></div>
+      <div class="panel" style="flex:1.05"><div class="pt"><i></i><b>诉求热词 · 民意热点</b><span class="sp" id="wordTag">HOT TOPICS</span></div>
         <div class="chart" id="cWord"><div class="loading">热词加载中…</div></div></div>
       <div class="panel" style="flex:1.4"><div class="pt"><i></i><b>最新留言</b><span class="sp" id="recMeta">LATEST</span></div>
         <div class="ticker"><div class="tk-track" id="tkTrack"></div></div></div>
-      <div class="panel" style="flex:1.15"><div class="pt"><i></i><b>诉求领域分布</b><span class="sp">TOP 10 DOMAIN</span></div><div class="chart" id="cDomain"></div></div>
+      <div class="panel" style="flex:1.15"><div class="pt"><i></i><b>诉求领域分布</b><span class="sp" id="domainTag">TOP 10 DOMAIN</span></div><div class="chart" id="cDomain"></div></div>
     </div>
   </div>
 
@@ -302,17 +302,20 @@ function openDistrict(name){const dd=(DATA&&DATA.districts||{})[name];if(!dd)ret
 function closeModal(){$('modal').classList.remove('on');if(CH.cMap)startCar(CH.cMap);}
 
 /* ====== 地图自动轮播：在各区之间跳动，弹出富信息小窗 ====== */
+const HANDLED_SET=['已办理','已回复','已解决','办结','已办结'];
+function handledRate(by,count){if(!count)return 0;let h=0;for(const k of HANDLED_SET)h+=(by&&by[k])||0;return 100*h/count;}
 function districtTip(name){const dd=(DATA&&DATA.districts||{})[name];if(!dd)return name;
   const s=dd.sat,rate=satRate(s),crate=satRate(DATA.sat),dl=rate-crate,up=dl>=0;
-  const wait=(dd.byStatus&&dd.byStatus['待回复'])||0;
+  const wait=(dd.byStatus&&dd.byStatus['待回复'])||0,hr=handledRate(dd.byStatus,dd.count);
   const kw=Object.entries(dd.kw||{}).sort((a,b)=>b[1]-a[1]).slice(0,4).map(x=>x[0]).join(' · ');
-  return `<div style="min-width:200px">
+  return `<div style="min-width:206px">
     <div style="font-size:17px;font-weight:800;color:#ffd27d;margin-bottom:7px;letter-spacing:1px">${name}</div>
     <div style="font-size:13px;line-height:1.85;color:#cdd8f0">
       留言总量 <b style="color:#fff;font-size:15px">${fmt(dd.count)}</b> 条<br/>
       群众满意率 <b style="color:#ffd27d;font-size:15px">${rate.toFixed(1)}%</b>
         <span style="color:${up?'#7fe6c1':'#ff9b8f'};font-weight:700">较全市${up?'▲':'▼'}${Math.abs(dl).toFixed(1)}%</span><br/>
-      待回复 <b style="color:#ff9b8f">${fmt(wait)}</b> 条 · 低分督办 <b style="color:#ff9b8f">${(dd.low||[]).length}</b> 条<br/>
+      办结率 <b style="color:#7fe6c1;font-size:15px">${hr.toFixed(1)}%</b> · 待回复 <b style="color:#ff9b8f">${fmt(wait)}</b> 条<br/>
+      低分督办 <b style="color:#ff9b8f">${(dd.low||[]).length}</b> 条<br/>
       <span style="color:#92a6cf">热词</span> ${kw}<br/>
       <span style="color:#5f739c;font-size:11px">点击查看完整对比 →</span>
     </div></div>`;}
@@ -323,8 +326,9 @@ function startCar(e){stopCar();
   const step=()=>{const name=names[carIdx%names.length];carIdx++;
     try{e.dispatchAction({type:'downplay',seriesIndex:0});
       e.dispatchAction({type:'highlight',seriesIndex:0,name});
-      e.dispatchAction({type:'showTip',seriesIndex:0,name});}catch(_){}};
-  step();carTimer=setInterval(step,3500);}
+      e.dispatchAction({type:'showTip',seriesIndex:0,name});
+      spotlight(name);}catch(_){}};
+  step();carTimer=setInterval(step,5500);}
 function stopCar(){if(carTimer){clearInterval(carTimer);carTimer=null;}}
 
 /* ============ 各图渲染 ============ */
@@ -332,11 +336,19 @@ function renderDomain(d){(CH.cDomain||mk('cDomain')).setOption(domainBar(d.byDom
 
 function renderStatus(d){(CH.cStatus||mk('cStatus')).setOption(statusDonut(d.byStatus));}
 
-function renderSat(d){const s=d.sat||{};const m=s.mCnt?s.mSum/s.mCnt:0,sp=s.sCnt?s.sSum/s.sCnt:0;const rate=satRate(s);
-  setNum($('kSat'),rate.toFixed(1));
+function setTag(id,name,def){const el=$(id);if(!el)return;
+  if(name)el.innerHTML='▶ <span style="color:#ffd27d;font-weight:700">'+name+'</span>';else el.textContent=def;}
+function applySat(s,label){const m=s&&s.mCnt?s.mSum/s.mCnt:0,sp=s&&s.sCnt?s.sSum/s.sCnt:0,rate=satRate(s);
   $('satM').childNodes[0].nodeValue=m.toFixed(2);$('satS').childNodes[0].nodeValue=sp.toFixed(2);
-  setNum($('satN'),fmt(s.mCnt||0));
-  (CH.cSat||mk('cSat')).setOption(satGauge(rate,true));}
+  setNum($('satN'),fmt((s&&s.mCnt)||0));
+  (CH.cSat||mk('cSat')).setOption(satGauge(rate,true));
+  setTag('satTag',label,'SATISFACTION · 1–5★');}
+function renderSat(d){setNum($('kSat'),satRate(d.sat).toFixed(1));applySat(d.sat,null);}
+// 轮播联动：满意度仪表 + 诉求领域 + 热词 跟随当前区切换
+function spotlight(name){const dd=DATA&&DATA.districts&&DATA.districts[name];if(!dd)return;
+  applySat(dd.sat,name);
+  (CH.cDomain||mk('cDomain')).setOption(domainBar(dd.byDomain,10));setTag('domainTag',name,'TOP 10 DOMAIN');
+  (CH.cWord||mk('cWord')).setOption(kwOption(dd.kw,[14,58],90));setTag('wordTag',name,'HOT TOPICS');}
 
 let geoReady=false,CENTER={};
 function renderMap(d){if(!geoReady)return;const e=CH.cMap||mk('cMap');
