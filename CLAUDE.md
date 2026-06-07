@@ -58,7 +58,7 @@ install ad hoc, it's gitignored).
   8 districts). `level` is city/district; `district` is the geojson region name used by the map.
   `MAIN_DISTRICTS` lists the 8 the frontend filters the geojson to. Change coverage here, then re-seed
   AND reset the data branch (delete it + re-run the Action) so the old scope doesn't linger.
-- **Per-district profiles** (`districts{name:{count,sat,byDomain,byStatus,byType,kw,low}}`) power both the
+- **Per-district profiles** (`districts{name:{count,sat,byDomain,byStatus,byType,byStreet,kw,low}}`) power both the
   click-to-compare modal AND the **auto-carousel linkage** (see frontend); **low-score messages**
   (`low[]` globally + per district, items rated ≤2★ on manner or speed) power the 督办重点 lists. Built in
   `add_records` (which also back-fills missing keys for old-schema districts), pruned in `write_store`.
@@ -74,12 +74,17 @@ install ad hoc, it's gitignored).
 - **`is_handled()` drives 办结率** from `status` (CSV's `has_reply` column is unreliable / all-0).
 - **Satisfaction** (`sat`): `gradeManner`/`gradeSpeed` are 1–5★ ratings (~49% of items rated; ~84%
   give 4–5). Accumulated as sums/counts + a 1–5 distribution → drives the 群众满意度 gauge.
+- **Streets** (`byStreet`, per district): the source has **no street field** and datav has **no street
+  geojson** for these districts (404; a real map is impossible). `DISTRICT_STREETS` holds a curated street
+  name list per district; `add_records` tags each留言 by first street name found in its title/content →
+  per-district counts. Coverage is only **~13–35%** (most留言 don't name a street), so the modal's
+  区内街道分布 bar is explicitly labelled with its coverage %. Treat as indicative, not authoritative.
 - **Keywords** (`kw`): `extract_words()` runs **jieba** (lazy import, no-op if missing) over留言 titles,
   minus `STOPWORDS` → accumulated word→count, pruned to TOP 400 on write → drives the wordcloud.
   `jieba` is a real dependency now (requirements.txt + workflow `pip install`).
 - **data.json schema**: `{updated, source, watermark{fid:tid}, totals{all,replied}, byMonth, byDomain,
   byStatus, byType, byForum{label:{count,fid,level}}, byDistrict{name:n}, sat{mSum,mCnt,sSum,sCnt,dist},
-  kw{word:count}, districts{name:{count,sat,byDomain,byStatus,byType,kw,low}}, low[≤80], recent[≤600 newest]}`.
+  kw{word:count}, districts{name:{count,sat,byDomain,byStatus,byType,byStreet,kw,low}}, low[≤80], recent[≤600 newest]}`.
   The frontend reads exactly these keys — keep in sync with `index.html`'s render functions.
   (`byType` is still computed but its donut panel was removed.)
 
@@ -90,9 +95,12 @@ install ad hoc, it's gitignored).
   only a fallback) — this fixed a "地图加载失败（网络受限）" where the viewer's network blocked datav.
   District centroids come from `feature.properties.center`. Wordcloud degrades to a top-keywords bar if
   the plugin fails to load.
-- Panels: KPI strip (今日/本月新增, 办结率, 群众满意率 — always city-wide), 群众满意度 gauge + 1–5★
-  评分分布 (`distBar`, shows the 1★ 差评/督办 share), 办理状态+诉求性质 dual donut (`donutMini`),
-  杭州主城区热力地图, 月度趋势(+环比/同比 badges, city-wide), 诉求热词云, 最新留言 ticker, 诉求领域 TOP10.
+- Panels: KPI strip (今日/本月新增, 办结率, 群众满意率 — always city-wide), **各区满意率排行** (`renderRank`,
+  all 8 districts sorted, red→gold by rate, current carousel district white-bordered — compare without
+  waiting for the carousel), 群众满意度 gauge + 1–5★ 评分分布 (`distBar`, shows the 1★ 差评/督办 share),
+  办理状态+诉求性质 dual donut (`donutMini`), 杭州主城区热力地图, 月度趋势(+环比/同比 badges, city-wide),
+  诉求热词云, 最新留言 ticker, 诉求领域 TOP10. A persistent bottom **低分督办预警** marquee (`renderLowMar`)
+  scrolls global low-score (≤2★) messages. The modal adds 区内街道分布 (street bar, coverage-labelled).
 - **Auto-carousel + linkage** (the headline behavior): the map auto-rotates through the 8 districts every
   5.5s (`startCar`), highlighting each + `showTip` with a rich `districtTip` callout (留言量/满意率 vs
   city/办结率/待回复/低分/热词). On each step `spotlight(name)` → `applyScope(district)` re-renders the
