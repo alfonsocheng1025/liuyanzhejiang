@@ -310,6 +310,11 @@ const DATA_SOURCES = ['/api/data', './data.json'];
 const GEO_SOURCES = ['./hangzhou.geo.json', 'https://geo.datav.aliyun.com/areas_v3/bound/330100_full.json'];
 const MAIN_DISTRICTS = ['上城区','拱墅区','西湖区','滨江区','萧山区','余杭区','临平区','钱塘区'];
 const ADCODE = {'上城区':'330102','拱墅区':'330105','西湖区':'330106','滨江区':'330108','萧山区':'330109','余杭区':'330110','临平区':'330113','钱塘区':'330114'};
+// 高德 JS API(真实底图)：key + 安全密钥(域名白名单保护)；扩展把 ECharts 系列叠在高德底图上
+const AMAP_JSKEY='ed39d8c84a15836e33c5cc9d2e4bf2bd';
+const AMAP_SEC='6501889bc2b43f3ab0eaac6acc35125c';
+const AMAP_EXT_CDN=['https://cdn.jsdelivr.net/npm/echarts-extension-amap@1.10.0/dist/echarts-extension-amap.min.js','https://unpkg.com/echarts-extension-amap@1.10.0/dist/echarts-extension-amap.min.js'];
+let amapReady=false;
 const ECHARTS_CDN = ['https://cdn.staticfile.net/echarts/5.5.1/echarts.min.js',
                      'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js'];
 const WORDCLOUD_CDN = ['https://cdn.staticfile.net/echarts-wordcloud/2.1.0/echarts-wordcloud.min.js',
@@ -489,30 +494,39 @@ function distInfoHTML(name){const dd=DATA.districts&&DATA.districts[name];if(!dd
   const s=dd.sat,rate=satRate(s),dl=rate-satRate(DATA.sat);
   const wait=(dd.byStatus&&dd.byStatus['待回复'])||0,hr=handledRate(dd.byStatus,dd.count);
   const rps=((RISK&&RISK.points)||[]).filter(p=>p.area===name).slice(0,2);
-  const risk=rps.length?rps.map(p=>`<div class="di-risk"><span class="di-rk ${RKCLS[p.level]||'rk-l'}">●${p.level} ${esc(p.topic)}</span><div class="di-j">${esc(p.judge||(p.signals||[]).join('、'))}</div>${p.advice?`<div class="di-a">▶ 应对：${esc(p.advice)}</div>`:''}</div>`).join(''):'<div class="di-none">本区暂无识别到风险点</div>';
+  const risk=rps.length?rps.map(p=>`<div class="di-risk"><span class="di-rk ${RKCLS[p.level]||'rk-l'}">●${p.level} ${esc(p.topic)}</span><span style="float:right;color:#ff9b8f;font-size:11px;font-weight:400">${p.count}条·距今${p.days}天未办</span><div class="di-j">${esc(p.judge||(p.signals||[]).join('、'))}</div>${p.advice?`<div class="di-a">▶ 应对：${esc(p.advice)}</div>`:''}</div>`).join(''):'<div class="di-none">本区暂无识别到风险点</div>';
   return `<div class="di-t">${name}</div>
     <div class="di-row">留言 <b>${fmt(dd.count)}</b> 条 · 满意率 <b>${rate.toFixed(1)}%</b> <span style="color:${dl>=0?'#7fe6c1':'#ff9b8f'}">${dl>=0?'▲':'▼'}${Math.abs(dl).toFixed(1)}</span></div>
     <div class="di-row">办结率 <b>${hr.toFixed(1)}%</b> · 待回复 <b style="color:#ff9b8f">${fmt(wait)}</b> · 低分 <b style="color:#ff9b8f">${(dd.low||[]).length}</b></div>
     <div class="di-h">⚠ 社会风险研判与应对</div>${risk}`;}
 // 区内街道气泡图：区边界 + 各街道气泡(大小=留言量, 颜色=满意度)
-function renderDistFocus(name){const dd=DATA.districts&&DATA.districts[name];if(!dd||!DMAP[name])return;
-  const sg=dd.streetGeo||{},bs=dd.byStreet||{},ss=dd.streetSat||{};
-  const max=Math.max(1,...Object.values(bs));
+function distBubbleData(dd){const sg=dd.streetGeo||{},bs=dd.byStreet||{},ss=dd.streetSat||{};
   const items=Object.keys(sg).map(st=>({st,n:bs[st]||0,sc:ss[st]?ss[st].s/ss[st].c:0,co:sg[st]})).sort((a,b)=>b.n-a.n);
-  const data=items.map((it,i)=>({name:it.st,value:it.co.concat(it.n),satv:it.sc,
+  return items.map((it,i)=>({name:it.st,value:it.co.concat(it.n),satv:it.sc,
     label:{show:i<7,formatter:it.st.replace(/(街道|镇|乡)$/,'')},
-    itemStyle:{color:it.sc?(it.sc<3.5?'#ff5b4d':it.sc<4.3?'#e0a93a':'#f5b942'):'#7aa0d8',shadowBlur:8,shadowColor:'rgba(245,185,66,.45)'}}));
-  (CH.cDistFocus||mk('cDistFocus')).setOption({
-    geo:{map:name,roam:false,layoutCenter:['42%','52%'],layoutSize:'92%',
+    itemStyle:{color:it.sc?(it.sc<3.5?'#ff5b4d':it.sc<4.3?'#e0a93a':'#f5b942'):'#7aa0d8',shadowBlur:8,shadowColor:'rgba(245,185,66,.5)'}}));}
+const distTip={trigger:'item',backgroundColor:'rgba(10,18,38,.95)',borderColor:'rgba(245,185,66,.5)',borderWidth:1,textStyle:{color:'#e9eefc'},extraCssText:'border-radius:8px',
+  formatter:p=>Array.isArray(p.value)?`${p.name}<br/>留言 ${fmt(p.value[2])} 条${p.data.satv?'<br/>满意度 '+p.data.satv.toFixed(2)+'★':''}`:p.name};
+function bubbleSeries(data,max,cs){return {type:'effectScatter',coordinateSystem:cs,data:data,zlevel:2,
+  symbolSize:v=>9+26*Math.sqrt((v[2]||0)/max),rippleEffect:{brushType:'stroke',scale:2.2},
+  label:{position:'top',color:'#fff',fontSize:11,textBorderColor:'#0a1020',textBorderWidth:3},labelLayout:{hideOverlap:true},emphasis:{scale:1.3}};}
+function renderDistFocus(name){const dd=DATA.districts&&DATA.districts[name];if(!dd)return;
+  const data=distBubbleData(dd),max=Math.max(1,...Object.values(dd.byStreet||{}));
+  const e=CH.cDistFocus||mk('cDistFocus');
+  if(amapReady&&data.length){
+    const lngs=data.map(d=>d.value[0]),lats=data.map(d=>d.value[1]);
+    const c=[(Math.min(...lngs)+Math.max(...lngs))/2,(Math.min(...lats)+Math.max(...lats))/2];
+    const span=Math.max(Math.max(...lngs)-Math.min(...lngs),Math.max(...lats)-Math.min(...lats));
+    const zoom=span>0.28?10.8:span>0.14?11.6:12.3;
+    e.setOption({amap:{center:c,zoom:zoom,mapStyle:'amap://styles/darkblue',resizeEnable:true,renderOnMoving:false},
+      tooltip:distTip,series:[bubbleSeries(data,max,'amap')]},true);
+    try{const am=e.getModel().getComponent('amap').getAMap();am.setZoomAndCenter(zoom,c);}catch(_){}
+    return;}
+  if(!DMAP[name])return;
+  e.setOption({geo:{map:name,roam:false,layoutCenter:['42%','52%'],layoutSize:'92%',
       itemStyle:{areaColor:'#0f2342',borderColor:'#3f6fb0',borderWidth:1.4,shadowColor:'rgba(74,163,255,.45)',shadowBlur:22},
       emphasis:{disabled:true},label:{show:false}},
-    tooltip:{trigger:'item',backgroundColor:'rgba(10,18,38,.95)',borderColor:'rgba(245,185,66,.5)',borderWidth:1,
-      textStyle:{color:'#e9eefc'},extraCssText:'border-radius:8px',
-      formatter:p=>Array.isArray(p.value)?`${p.name}<br/>留言 ${fmt(p.value[2])} 条${p.data.satv?'<br/>满意度 '+p.data.satv.toFixed(2)+'★':''}`:p.name},
-    series:[{type:'effectScatter',coordinateSystem:'geo',data:data,zlevel:2,
-      symbolSize:v=>9+26*Math.sqrt((v[2]||0)/max),rippleEffect:{brushType:'stroke',scale:2.2},
-      label:{position:'top',color:'#dfe8fb',fontSize:10},labelLayout:{hideOverlap:true},
-      emphasis:{scale:1.3}}]},true);}
+    tooltip:distTip,series:[bubbleSeries(data,max,'geo')]},true);}
 const SHORT={'上城区':'上城','拱墅区':'拱墅','西湖区':'西湖','滨江区':'滨江','萧山区':'萧山','余杭区':'余杭','临平区':'临平','钱塘区':'钱塘'};
 function stripKw(kw,label){const s=SHORT[label];if(!s)return kw;const o={};for(const k in kw)if(k.indexOf(s)<0)o[k]=kw[k];return o;}
 function mergeStreets(){const m={};for(const dd of Object.values((DATA&&DATA.districts)||{}))for(const k in (dd.byStreet||{}))m[k]=(m[k]||0)+dd.byStreet[k];return m;}
@@ -658,7 +672,12 @@ async function boot(){
     g.features.forEach(f=>{const c=f.properties.center||f.properties.centroid;if(c)CENTER[f.properties.name]=c;});
     geoReady=true;break;}catch(e){}}
   if(!geoReady){const lo=$('cMap').querySelector('.loading');if(lo)lo.textContent='地图加载失败';}
-  // 预加载各区边界(adcode)用于区内街道气泡图
+  // 真实高德底图(JS API v2)：成功则区图用真地图瓦片，失败回落到 geojson 多边形
+  try{window._AMapSecurityConfig={securityJsCode:AMAP_SEC};
+    await loadScript('https://webapi.amap.com/maps?v=2.0&key='+AMAP_JSKEY);
+    const extOk=await tryEach(AMAP_EXT_CDN);
+    amapReady=!!window.AMap&&extOk;}catch(e){amapReady=false;}
+  // 预加载各区边界(adcode)：高德不可用时的回落底图
   for(const code of Object.values(ADCODE)){const name=Object.keys(ADCODE).find(k=>ADCODE[k]===code);
     try{const dg=await(await fetch('./geojson/'+code+'.json')).json();echarts.registerMap(name,dg);DMAP[name]=1;}catch(e){}}
   // 加载地理编码结果 geo.json（各区街道留言量/满意度/覆盖率/街道质心）

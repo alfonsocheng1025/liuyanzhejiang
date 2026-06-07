@@ -191,8 +191,15 @@ def main():
 
     key = os.environ.get("DEEPSEEK_API_KEY")
     cache = ds_cache()
+    sel = []
     if not args.no_llm and key:
-        for p in points[:TOP_LLM]:
+        # 选取：全局 TOP12 + 每个地区的最高点(保证每个区/版块都有研判)
+        sel.extend(points[:TOP_LLM])
+        areas = set(p["area"] for p in sel)
+        for p in points[TOP_LLM:]:
+            if p["area"] not in areas:
+                sel.append(p); areas.add(p["area"])
+        for p in sel:
             sg = sig(p)
             res = cache.get(sg)
             if res is None:
@@ -208,15 +215,20 @@ def main():
         # LLM 可能改级，重排
         order = {"红": 0, "橙": 1, "黄": 2}
         points.sort(key=lambda p: (order.get(p["level"], 3), -p["score"] * p["count"]))
-        print(f"[DeepSeek] 已研判 TOP{min(TOP_LLM,len(points))}（缓存 {len(cache)}）")
+        print(f"[DeepSeek] 已研判 {len(sel)} 个(全局TOP{TOP_LLM}+各区最高)（缓存 {len(cache)}）")
     elif not args.no_llm:
         print("[提示] 无 DEEPSEEK_API_KEY，跳过研判（只出规则结果）", file=sys.stderr)
 
+    outp = points[:50]
+    ks = {p["key"] for p in outp}
+    for p in sel:   # 确保每个被研判的区级点都进输出(避免小区被全局排名截掉)
+        if p["key"] not in ks:
+            outp.append(p); ks.add(p["key"])
     out = {
         "updated": now_cn().isoformat(timespec="seconds"),
         "counts": {lv: sum(1 for p in points if p["level"] == lv) for lv in ("红", "橙", "黄")},
         "pendingTotal": len(pending),
-        "points": points[:40],
+        "points": outp,
     }
     json.dump(out, open(args.out, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     print(f"[完成] → {args.out}")
